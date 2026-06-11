@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 import { useAlumnos } from '../hooks/useAlumnos'
 import { Plus, Pencil, Trash2, X, Search, Users, ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -15,7 +16,33 @@ export default function AlumnosPage() {
 
   const openCreate = () => { setEditing(null); setForm({ cedula: '', nombre: '', apellido: '', telefono: '', email: '', direccion: '', fecha_nacimiento: '' }); setModalOpen(true) }
   const openEdit = (a) => { setEditing(a); setForm({ cedula: a.cedula, nombre: a.nombre, apellido: a.apellido, telefono: a.telefono || '', email: a.email || '', direccion: a.direccion || '', fecha_nacimiento: a.fecha_nacimiento || '' }); setModalOpen(true) }
-  const handleSubmit = async (e) => { e.preventDefault(); if (editing) { await updateAlumno(editing.id, form) } else { await createAlumno(form) }; setModalOpen(false) }
+  
+  const handleSubmit = async (e) => { 
+    e.preventDefault(); 
+    try {
+      if (editing) { 
+        await updateAlumno({ id: editing.id, updates: form }) 
+        toast.success('Alumno actualizado exitosamente')
+      } else { 
+        await createAlumno(form) 
+        toast.success('Alumno creado exitosamente')
+      }
+      setModalOpen(false) 
+    } catch (error) {
+      toast.error('Ocurrió un error al guardar el alumno')
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este alumno?')) {
+      try {
+        await deleteAlumno(id)
+        toast.success('Alumno eliminado')
+      } catch (error) {
+        toast.error('Error al eliminar el alumno')
+      }
+    }
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / perPage))
 
@@ -53,7 +80,7 @@ export default function AlumnosPage() {
                     <td className="table-cell"><span className="font-semibold">{a.nombre} {a.apellido}</span></td>
                     <td className="table-cell">{a.telefono}</td>
                     <td className="table-cell text-on-surface-variant">{a.email}</td>
-                    <td className="table-cell text-right"><div className="flex justify-end gap-1"><button onClick={() => openEdit(a)} className="p-2 rounded-lg hover:bg-surface-container-high"><Pencil className="w-4 h-4 text-on-surface-variant" /></button><button onClick={() => deleteAlumno(a.id)} className="p-2 rounded-lg hover:bg-error-container"><Trash2 className="w-4 h-4 text-error" /></button></div></td>
+                    <td className="table-cell text-right"><div className="flex justify-end gap-1"><button onClick={() => openEdit(a)} className="p-2 rounded-lg hover:bg-surface-container-high"><Pencil className="w-4 h-4 text-on-surface-variant" /></button><button onClick={() => handleDelete(a.id)} className="p-2 rounded-lg hover:bg-error-container"><Trash2 className="w-4 h-4 text-error" /></button></div></td>
                   </tr>
                 ))}
               </tbody>
@@ -63,7 +90,7 @@ export default function AlumnosPage() {
           <div className="md:hidden space-y-3">
             {alumnos.map(a => (
               <div key={a.id} className="card p-4">
-                <div className="flex justify-between items-start"><div><p className="font-bold text-on-surface">{a.nombre} {a.apellido}</p><p className="text-sm text-on-surface-variant">{a.cedula}</p></div><div className="flex gap-1"><button onClick={() => openEdit(a)} className="p-2 rounded-lg hover:bg-surface-container-high"><Pencil className="w-4 h-4" /></button><button onClick={() => deleteAlumno(a.id)} className="p-2 rounded-lg hover:bg-error-container"><Trash2 className="w-4 h-4 text-error" /></button></div></div>
+                <div className="flex justify-between items-start"><div><p className="font-bold text-on-surface">{a.nombre} {a.apellido}</p><p className="text-sm text-on-surface-variant">{a.cedula}</p></div><div className="flex gap-1"><button onClick={() => openEdit(a)} className="p-2 rounded-lg hover:bg-surface-container-high"><Pencil className="w-4 h-4" /></button><button onClick={() => handleDelete(a.id)} className="p-2 rounded-lg hover:bg-error-container"><Trash2 className="w-4 h-4 text-error" /></button></div></div>
                 <div className="mt-2 text-sm text-on-surface-variant space-y-1"><p>{a.telefono}</p><p>{a.email}</p></div>
               </div>
             ))}

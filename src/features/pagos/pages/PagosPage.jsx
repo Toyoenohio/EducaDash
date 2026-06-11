@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import toast from 'react-hot-toast'
 import { usePagos } from '../hooks/usePagos'
 import { useInscripciones } from '../../inscripciones/hooks/useInscripciones'
 import { useAlumnos } from '../../alumnos/hooks/useAlumnos'
@@ -25,9 +26,14 @@ export default function PagosPage() {
 
   const handlePay = async () => {
     if (payModal) {
-      await marcarPagado(payModal.id, payForm)
-      setPayModal(null)
-      setPayForm({ metodo_pago: 'efectivo', referencia: '', concepto: 'cuota_mensual' })
+      try {
+        await marcarPagado(payModal.id, payForm)
+        toast.success('Pago registrado correctamente')
+        setPayModal(null)
+        setPayForm({ metodo_pago: 'efectivo', referencia: '', concepto: 'cuota_mensual' })
+      } catch (err) {
+        toast.error('Error al registrar el pago')
+      }
     }
   }
 
@@ -36,55 +42,55 @@ export default function PagosPage() {
 
     if (manualTab === 'nuevo') {
       if (!newAlumnoForm.nombre || !newAlumnoForm.apellido || !newAlumnoForm.cedula) {
-        alert("Faltan datos requeridos del alumno (Nombre, Apellido, Cédula)")
+        toast.error("Faltan datos requeridos del alumno")
         return
       }
-      const { data: newAlumno, error: errAlumno } = await createAlumno(newAlumnoForm)
-      if (errAlumno || !newAlumno || newAlumno.length === 0) {
-        alert(errAlumno?.message || 'Error al crear el alumno')
+      try {
+        const newAlumno = await createAlumno(newAlumnoForm)
+        currentAlumnoId = newAlumno.id
+      } catch (errAlumno) {
+        toast.error(errAlumno?.message || 'Error al crear el alumno')
         return
       }
-      currentAlumnoId = newAlumno[0].id
     }
 
     if (currentAlumnoId && manualForm.seccion_id && manualForm.monto) {
       let inscripcionId = ''
-      // Try to find existing inscripcion
-      const existing = inscripciones.find(i => i.alumno_id === currentAlumnoId && i.seccion_id === manualForm.seccion_id)
-      
-      if (existing) {
-        inscripcionId = existing.id
-      } else {
-        // Create new inscripcion (it will start as pendiente)
-        const { data, error } = await createInscripcion({
-          alumno_id: currentAlumnoId,
-          seccion_id: manualForm.seccion_id,
-          estado: 'pendiente'
-        })
-        if (error || !data || data.length === 0) {
-          alert(error?.message || 'Error al inscribir al alumno')
-          return
+      try {
+        const existing = inscripciones.find(i => i.alumno_id === currentAlumnoId && i.seccion_id === manualForm.seccion_id)
+        
+        if (existing) {
+          inscripcionId = existing.id
+        } else {
+          const data = await createInscripcion({
+            alumno_id: currentAlumnoId,
+            seccion_id: manualForm.seccion_id,
+            estado: 'pendiente'
+          })
+          inscripcionId = data.id
         }
-        inscripcionId = data[0].id
-      }
 
-      const now = new Date()
-      await createPago({
-        inscripcion_id: inscripcionId,
-        mes: now.getMonth() + 1,
-        anio: now.getFullYear(),
-        monto: parseFloat(manualForm.monto),
-        concepto: manualForm.concepto,
-        metodo_pago: manualForm.metodo_pago,
-        referencia: manualForm.referencia,
-        pagado: true,
-        fecha_pago: now.toISOString(),
-      })
-      
-      setManualPayModal(false)
-      setManualTab('existente')
-      setNewAlumnoForm({ cedula: '', nombre: '', apellido: '', telefono: '', email: '' })
-      setManualForm({ alumno_id: '', seccion_id: '', concepto: 'inscripcion', monto: '', metodo_pago: 'efectivo', referencia: '' })
+        const now = new Date()
+        await createPago({
+          inscripcion_id: inscripcionId,
+          mes: now.getMonth() + 1,
+          anio: now.getFullYear(),
+          monto: parseFloat(manualForm.monto),
+          concepto: manualForm.concepto,
+          metodo_pago: manualForm.metodo_pago,
+          referencia: manualForm.referencia,
+          pagado: true,
+          fecha_pago: now.toISOString(),
+        })
+        
+        toast.success('Pago manual registrado exitosamente')
+        setManualPayModal(false)
+        setManualTab('existente')
+        setNewAlumnoForm({ cedula: '', nombre: '', apellido: '', telefono: '', email: '' })
+        setManualForm({ alumno_id: '', seccion_id: '', concepto: 'inscripcion', monto: '', metodo_pago: 'efectivo', referencia: '' })
+      } catch (error) {
+        toast.error(error?.message || 'Error al procesar el pago manual')
+      }
     }
   }
 
