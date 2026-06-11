@@ -1,0 +1,242 @@
+markdown
+
+# 📘 Plan Unificado de Refactorización – EducaDash
+
+**Repositorio:** `https://github.com/Toyoenohio/EducaDash`  
+**Rol del agente:** Ingeniero de Software Senior / Arquitecto Full-Stack.  
+**Problemas críticos a resolver:**
+1. 🔴 **Fuga de seguridad severa:** `VITE_SUPABASE_SERVICE_ROLE_KEY` expuesta en el frontend.
+2. 🐢 **Lentitud extrema y recargas manuales:** datos que no cargan tras navegar un rato, obligando a refrescar la página.
+3. 🌀 **Estados de carga infinitos:** mala sincronización de sesión y peticiones redundantes.
+4. 🗂️ **Estructura plana y desordenada:** dificulta el escalado y mantenimiento.
+
+---
+
+## 🛑 FASE 0 – SEGURIDAD CRÍTICA (Prioridad máxima)
+
+### Vulnerabilidad detectada
+El archivo `.env.example` y el código del frontend usan `VITE_SUPABASE_SERVICE_ROLE_KEY`. En Vite, cualquier variable con prefijo `VITE_` se inyecta en el bundle del navegador, exponiendo una clave que **bypassea todas las políticas RLS** de Supabase. Esto permite a cualquier atacante tomar control total de la base de datos.
+
+### Instrucciones para el agente
+
+#### 1. Eliminar del frontend
+- Eliminar por completo cualquier referencia a `VITE_SUPABASE_SERVICE_ROLE_KEY` o `import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY` en `src/lib/supabaseClient.js` o similar.
+- Asegurarse de que **solo** la `VITE_SUPABASE_ANON_KEY` se use para el cliente público.
+
+#### 2. Implementar Edge Function segura para operaciones privilegiadas
+Para el registro silencioso de alumnos (u otras operaciones que requieran la clave de servicio), crear una **Edge Function en Supabase** que actúe como proxy seguro.
+
+**Estructura de la Edge Function (Deno/TypeScript):**
+
+```ts
+// supabase/functions/create-student/index.ts
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
+Deno.serve(async (req) => {
+  try {
+    const { email, password, metadata } = await req.json()
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SERVICE_ROLE_KEY')!   // Solo aquí, en backend
+    )
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      user_metadata: metadata,
+      email_confirm: true,
+    })
+    if (error) throw error
+    return new Response(JSON.stringify({ user: data.user }), { status: 201 })
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 400 })
+  }
+})
+
+Llamada desde el frontend:
+js
+
+const { data, error } = await supabase.functions.invoke('create-student', {
+  body: { email, password, metadata }
+})
+
+3. Configurar cabeceras de seguridad HTTP
+
+En el servidor de despliegue (Vercel, Netlify, nginx) añadir:
+
+    Content-Security-Policy: default-src 'self'
+
+    X-Frame-Options: DENY
+
+    X-Content-Type-Options: nosniff
+
+Criterio de éxito: Compilar la app (npm run build) y buscar service_role o SERVICE_ROLE dentro de dist/. No debe aparecer ninguna coincidencia.
+⚡ FASE 1 – RENDIMIENTO Y ESTABILIDAD DE DATOS (Soluciona recargas manuales y lentitud)
+Diagnóstico de causas
+
+    Ausencia de caché: Cada cambio de ruta o montaje de componente dispara consultas completas a Supabase sin límites (select('*')).
+
+    Filtros y búsquedas en el cliente: Después de descargar miles de registros.
+
+    Importación estática de todas las páginas: El bundle inicial incluye código de todas las vistas.
+
+    Mala sincronización de sesión: El AuthContext actual puede provocar renders infinitos o peticiones redundantes.
+
+Instrucciones de implementación
+1. Instalar y configurar TanStack Query
+bash
+
+npm install @tanstack/react-query
+
+En main.jsx:
+jsx
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 1 } }
+})
+// Envolver <App /> con <QueryClientProvider client={queryClient}>
+
+2. Refactorizar hooks de datos (useAlumnos, useDashboard, usePagos)
+
+Antes: useState + useEffect con descarga masiva.
+Después: useQuery con paginación y búsquedas en BD.
+
+Ejemplo para useAlumnos:
+js
+
+export const useAlumnos = (pagina = 1, busqueda = '') => {
+  const limit = 20
+  const from = (pagina - 1) * limit
+  const to = from + limit - 1
+
+  return useQuery({
+    queryKey: ['alumnos', pagina, busqueda],
+    queryFn: async () => {
+      let query = supabase
+        .from('alumnos')
+        .select('*', { count: 'exact' })
+        .range(from, to)
+        .order('nombre')
+      if (busqueda) {
+        query = query.ilike('nombre', `%${busqueda}%`)
+      }
+      const { data, count, error } = await query
+      if (error) throw error
+      return { data, total: count }
+    },
+    keepPreviousData: true,
+  })
+}
+
+3. Implementar paginación o scroll infinito
+
+En AlumnosPage y PagosPage agregar controles de paginación o usar useInfiniteQuery.
+4. Code splitting con React.lazy
+
+En App.jsx:
+jsx
+
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Alumnos = lazy(() => import('./pages/AlumnosPage'))
+// ...
+<Suspense fallback={<div className="p-4 text-center">Cargando...</div>}>
+  <Routes>...</Routes>
+</Suspense>
+
+5. Corregir sincronización de sesión (AuthContext)
+
+Revisar AuthContext para evitar:
+
+    Peticiones repetitivas a supabase.auth.getSession().
+
+    Estados de carga infinitos cuando el usuario no está autenticado.
+
+Mejora sugerida (usando onAuthStateChange una sola vez):
+js
+
+useEffect(() => {
+  const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+    setSession(session)
+    setLoading(false)
+  })
+  return () => listener?.subscription.unsubscribe()
+}, [])
+
+Criterio de éxito: Navegar entre secciones y esperar 10 minutos; al volver a una pestaña anterior, los datos aparecen sin recargar la página.
+🧱 FASE 2 – REORGANIZACIÓN DE LA ESTRUCTURA DEL PROYECTO (Escalabilidad)
+Estructura actual: plana, difícil de mantener.
+Estructura objetivo (modular por features):
+text
+
+src/
+├── features/
+│   ├── auth/
+│   │   ├── context/AuthContext.jsx
+│   │   ├── hooks/useAuth.js
+│   │   └── pages/LoginPage.jsx
+│   ├── alumnos/
+│   │   ├── hooks/useAlumnos.js
+│   │   ├── components/AlumnoTable.jsx
+│   │   └── pages/AlumnosPage.jsx
+│   ├── pagos/
+│   │   ├── hooks/usePagos.js
+│   │   └── pages/PagosPage.jsx
+│   └── dashboard/
+│       ├── hooks/useDashboardStats.js
+│       └── pages/Dashboard.jsx
+├── shared/
+│   ├── components/ui/Skeleton.jsx
+│   ├── layout/MainLayout.jsx
+│   └── lib/supabaseClient.js
+├── App.jsx
+└── main.jsx
+
+Acciones
+
+    Mover cada página y sus hooks/componentes asociados a su carpeta features/.
+
+    Crear componentes reutilizables en shared/ (tablas, skeletons, botones).
+
+    Actualizar las rutas de importación.
+
+Criterio de éxito: El proyecto debe seguir funcionando exactamente igual, pero con una organización que permita añadir nuevos módulos sin acoplarse.
+🎨 FASE 3 – MEJORAS VISUALES Y EXPERIENCIA DE USUARIO
+
+    Implementar skeleton screens para cada vista que use useQuery (mostrar mientras isLoading).
+
+    Añadir indicadores de carga en botones de acciones (ej: "Creando alumno...").
+
+    Mostrar mensajes claros de error cuando una consulta falle (isError + toast).
+
+    Asegurar que el layout no "salte" al cargar datos (usar dimensiones fijas en skeletons).
+
+✅ CRITERIOS DE ACEPTACIÓN FINALES (Validación)
+ID	Criterio	Cómo verificarlo
+CA-1	La clave service_role no aparece en el bundle de producción	npm run build && grep -r "service_role" dist/ no da resultados
+CA-2	La carga inicial mejora al menos un 40% (Lighthouse)	Ejecutar Lighthouse en modo incógnito, comparar antes/después
+CA-3	No es necesario recargar la página tras navegar 10+ minutos	Simular navegación prolongada, volver a secciones previas
+CA-4	No hay estados de carga infinitos o congelados	Cerrar sesión, recargar, iniciar sesión – el dashboard carga sin quedarse "cargando..." para siempre
+CA-5	Las búsquedas se ejecutan en la base de datos (respuesta rápida)	Abrir red de desarrollador, escribir en buscador y verificar que la petición a Supabase incluye ilike
+CA-6	La estructura de archivos sigue el esquema modular propuesto	Inspección visual del directorio src/
+📅 ORDEN DE EJECUCIÓN RECOMENDADO (Secuencial)
+
+    Fase 0 (Seguridad) – Eliminar service_role del frontend + Edge Function.
+
+    Fase 1 (Rendimiento) – React Query, paginación, lazy loading, corrección de AuthContext.
+
+    Fase 2 (Estructura) – Reorganización modular.
+
+    Fase 3 (UX) – Skeletons y mensajes de error.
+
+Cada fase debe desplegarse y validarse antes de pasar a la siguiente.
+📌 NOTAS ADICIONALES PARA EL AGENTE
+
+    El código original tiene hooks como useAlumnos que hacen select('*') sin límites. No intentes optimizar solo con índices; implementa paginación obligatoriamente.
+
+    Para la Edge Function, asegúrate de desplegarla en Supabase con supabase functions deploy create-student.
+
+    Si el proyecto no usa TypeScript, adapta los ejemplos a JavaScript (elimina tipos).
+
+    Tras la refactorización, prueba exhaustivamente el flujo de registro de alumnos (debe hacerse mediante la Edge Function, no directamente con la anon key).
+
+    La corrección del AuthContext es crucial para evitar bucles infinitos. Prueba también el cierre de sesión y el refresco del token.

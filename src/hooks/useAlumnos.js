@@ -1,111 +1,115 @@
-import { useState, useEffect, useCallback } from 'react'
-import { supabase, supabaseAdmin } from '../lib/supabase'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
 import { mockAlumnos as initialMockAlumnos } from '../lib/mockData'
 
 const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 
-export function useAlumnos() {
-  const [alumnos, setAlumnos] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
+export function useAlumnos(pagina = 1, limit = 10, busqueda = '') {
+  const queryClient = useQueryClient()
+  const from = (pagina - 1) * limit
+  const to = from + limit - 1
 
-  const fetchAlumnos = async () => {
-    setLoading(true)
-    if (useMockData) {
-      await new Promise(r => setTimeout(r, 400))
-      setAlumnos(initialMockAlumnos)
-      setLoading(false)
-      return
-    }
-    const { data, error } = await supabase.from('alumnos').select('*').order('created_at', { ascending: false })
-    if (!error) setAlumnos(data)
-    setLoading(false)
-  }
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['alumnos', pagina, busqueda],
+    queryFn: async () => {
+      if (useMockData) {
+        await new Promise(r => setTimeout(r, 400))
+        let result = initialMockAlumnos
+        if (busqueda) {
+          const term = busqueda.toLowerCase()
+          result = result.filter(a => 
+            a.nombre.toLowerCase().includes(term) ||
+            a.apellido.toLowerCase().includes(term) ||
+            a.cedula.toLowerCase().includes(term) ||
+            (a.email && a.email.toLowerCase().includes(term))
+          )
+        }
+        return { data: result.slice(from, to + 1), total: result.length }
+      }
 
-  const searchAlumnos = useCallback((term) => {
-    setSearchTerm(term)
-  }, [])
+      let query = supabase
+        .from('alumnos')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        
+      if (busqueda) {
+        query = query.or(`nombre.ilike.%${busqueda}%,apellido.ilike.%${busqueda}%,cedula.ilike.%${busqueda}%,email.ilike.%${busqueda}%`)
+      }
 
-  const filteredAlumnos = alumnos.filter(a => {
-    if (!searchTerm) return true
-    const term = searchTerm.toLowerCase()
-    return (
-      a.nombre.toLowerCase().includes(term) ||
-      a.apellido.toLowerCase().includes(term) ||
-      a.cedula.toLowerCase().includes(term) ||
-      a.email.toLowerCase().includes(term)
-    )
+      const { data, count, error } = await query.range(from, to)
+      if (error) throw error
+      return { data, total: count || 0 }
+    },
+    keepPreviousData: true,
   })
 
-  const createAlumno = async (alumnoData) => {
-    if (useMockData) {
-      const newAlumno = { ...alumnoData, id: crypto.randomUUID(), created_at: new Date().toISOString() }
-      setAlumnos(prev => [...prev, newAlumno])
-      return { data: [newAlumno], error: null }
-    }
-    
-    // Clean data
-    const cleanData = { ...alumnoData }
-    if (cleanData.fecha_nacimiento === '') cleanData.fecha_nacimiento = null
+  const createMutation = useMutation({
+    mutationFn: async (alumnoData) => {
+      const cleanData = { ...alumnoData }
+      if (cleanData.fecha_nacimiento === '') cleanData.fecha_nacimiento = null
 
-    // Attempt to create Auth User if supabaseAdmin is available and email exists
-    if (supabaseAdmin && cleanData.email) {
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: cleanData.email,
-        password: 'Educa2026*',
-        email_confirm: true,
-        user_metadata: {
-          nombre: cleanData.nombre,
-          apellido: cleanData.apellido,
-          cedula: cleanData.cedula
+      if (useMockData) {
+         const generateId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+         return { ...cleanData, id: generateId(), created_at: new Date().toISOString() }
+      }
+
+      if (cleanData.email) {
+        const { data: authData, error: authError } = await supabase.functions.invoke('create-student', {
+          body: { 
+            email: cleanData.email, 
+            password: 'Educa2026*', 
+            metadata: {
+              nombre: cleanData.nombre,
+              apellido: cleanData.apellido,
+              cedula: cleanData.cedula
+            }
+          }
+        });
+
+        if (authError || !authData?.user) {
+           console.error("Error creating auth user via Edge Function:", authError);
+        } else if (authData?.user) {
+           cleanData.id = authData.user.id;
         }
-      })
+      }
+
+      const { data, error } = await supabase.from('alumnos').insert([cleanData]).select()
+      if (error) throw error
+      return data[0]
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alumnos'] })
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }) => {
+      const cleanUpdates = { ...updates }
+      if (cleanUpdates.fecha_nacimiento === '') cleanUpdates.fecha_nacimiento = null
+
+      if (useMockData) return { id, ...cleanUpdates }
       
-      // If error is not "User already registered", throw error
-      if (authError && authError.message !== 'User already registered') {
-        console.error("Error creating auth user:", authError)
-        return { data: null, error: authError }
-      }
+      const { data, error } = await supabase.from('alumnos').update(cleanUpdates).eq('id', id).select()
+      if (error) throw error
+      return data[0]
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alumnos'] })
+  })
 
-      // Sync the ID from auth to keep it consistent
-      if (authData?.user) {
-        cleanData.id = authData.user.id
-      }
-    } else if (!supabaseAdmin) {
-      console.warn("supabaseAdmin no está configurado. No se creó el usuario en Auth. Falta VITE_SUPABASE_SERVICE_ROLE_KEY en .env")
-    }
+  const deleteMutation = useMutation({
+    mutationFn: async (id) => {
+      if (useMockData) return id
+      const { error } = await supabase.from('alumnos').delete().eq('id', id)
+      if (error) throw error
+      return id
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alumnos'] })
+  })
 
-    const { data, error } = await supabase.from('alumnos').insert([cleanData]).select()
-    if (!error) setAlumnos(prev => [...prev, data[0]])
-    return { data, error }
+  return { 
+    alumnos: data?.data || [], 
+    total: data?.total || 0,
+    loading, 
+    createAlumno: createMutation.mutateAsync, 
+    updateAlumno: async (id, updates) => updateMutation.mutateAsync({ id, updates }), 
+    deleteAlumno: deleteMutation.mutateAsync 
   }
-
-  const updateAlumno = async (id, updates) => {
-    if (useMockData) {
-      setAlumnos(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a))
-      return { data: [{ id, ...updates }], error: null }
-    }
-    
-    // Clean up empty strings for date fields and optionals
-    const cleanUpdates = { ...updates }
-    if (cleanUpdates.fecha_nacimiento === '') cleanUpdates.fecha_nacimiento = null
-    
-    const { data, error } = await supabase.from('alumnos').update(cleanUpdates).eq('id', id).select()
-    if (!error) setAlumnos(prev => prev.map(a => a.id === id ? data[0] : a))
-    return { data, error }
-  }
-
-  const deleteAlumno = async (id) => {
-    if (useMockData) {
-      setAlumnos(prev => prev.filter(a => a.id !== id))
-      return { error: null }
-    }
-    const { error } = await supabase.from('alumnos').delete().eq('id', id)
-    if (!error) setAlumnos(prev => prev.filter(a => a.id !== id))
-    return { error }
-  }
-
-  useEffect(() => { fetchAlumnos() }, [])
-
-  return { alumnos: filteredAlumnos, allAlumnos: alumnos, loading, searchTerm, searchAlumnos, fetchAlumnos, createAlumno, updateAlumno, deleteAlumno }
 }

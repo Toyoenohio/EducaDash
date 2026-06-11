@@ -13,19 +13,25 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (useMockData) return
 
-    getUserWithRole().then(setUser).finally(() => setLoading(false))
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          const userWithRole = await getUserWithRole()
-          setUser(userWithRole)
-        } else {
-          setUser(null)
-        }
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        // Only fetch role if we don't already have it
+        const userWithRole = await getUserWithRole()
+        setUser(userWithRole)
+      } else {
+        setUser(null)
       }
-    )
-    return () => listener.subscription.unsubscribe()
+      setLoading(false)
+    })
+    
+    // Also try to get initial session manually just in case
+    supabase.auth.getSession().then(({ data: { session } }) => {
+       if (!session) {
+         setLoading(false)
+       }
+    });
+
+    return () => listener?.subscription.unsubscribe()
   }, [])
 
   const login = async (email, password) => {
