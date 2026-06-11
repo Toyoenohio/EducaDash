@@ -6,13 +6,13 @@ import Layout from './components/Layout/Layout'
 import ProtectedRoute from './components/Layout/ProtectedRoute'
 
 const Login = lazy(() => import('./pages/Login'))
-const Dashboard = lazy(() => import('./pages/Dashboard'))
-const SedesPage = lazy(() => import('./pages/SedesPage'))
-const CursosPage = lazy(() => import('./pages/CursosPage'))
-const AlumnosPage = lazy(() => import('./pages/AlumnosPage'))
-const InscripcionesPage = lazy(() => import('./pages/InscripcionesPage'))
-const PagosPage = lazy(() => import('./pages/PagosPage'))
-const AsistenciaPage = lazy(() => import('./pages/AsistenciaPage'))
+const Dashboard = lazy(() => import('./features/dashboard/pages/Dashboard'))
+const SedesPage = lazy(() => import('./features/sedes/pages/SedesPage'))
+const CursosPage = lazy(() => import('./features/cursos/pages/CursosPage'))
+const AlumnosPage = lazy(() => import('./features/alumnos/pages/AlumnosPage'))
+const InscripcionesPage = lazy(() => import('./features/inscripciones/pages/InscripcionesPage'))
+const PagosPage = lazy(() => import('./features/pagos/pages/PagosPage'))
+const AsistenciaPage = lazy(() => import('./features/cursos/pages/AsistenciaPage'))
 
 function App() {
   return (

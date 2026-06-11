@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabase'
-import { mockPagos as initialMockPagos } from '../lib/mockData'
+import { supabase } from '../../../lib/supabase'
+import { mockPagos as initialMockPagos } from '../../../lib/mockData'
 
 const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 
@@ -45,7 +45,7 @@ export function usePagos() {
         const newPago = { ...pago, id: crypto.randomUUID() }
         
         if (pago.concepto === 'inscripcion') {
-          const { mockInscripciones } = await import('../lib/mockData')
+          const { mockInscripciones } = await import('../../../lib/mockData')
           const inscIndex = mockInscripciones.findIndex(i => i.id === pago.inscripcion_id)
           if (inscIndex >= 0 && mockInscripciones[inscIndex].estado === 'pendiente') {
             mockInscripciones[inscIndex].estado = 'activa'
@@ -81,7 +81,7 @@ export function usePagos() {
       
       if (useMockData) {
         if (updates.concepto === 'inscripcion') {
-          const { mockInscripciones } = await import('../lib/mockData')
+          const { mockInscripciones } = await import('../../../lib/mockData')
           const pago = pagos.find(p => p.id === id)
           if (pago) {
             const inscIndex = mockInscripciones.findIndex(i => i.id === pago.inscripcion_id)

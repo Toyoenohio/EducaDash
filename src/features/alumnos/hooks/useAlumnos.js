@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabase'
-import { mockAlumnos as initialMockAlumnos } from '../lib/mockData'
+import { supabase } from '../../../lib/supabase'
+import { mockAlumnos as initialMockAlumnos } from '../../../lib/mockData'
 
 const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 

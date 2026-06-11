@@ -1,6 +1,6 @@
 import { Users, ClipboardList, CreditCard, DollarSign, TrendingUp } from 'lucide-react'
-import { useSede } from '../../contexts/SedeContext'
-import { useDashboard } from '../../hooks/useDashboard'
+import { useSede } from '../../../contexts/SedeContext'
+import { useDashboard } from '../hooks/useDashboard'
 import { useMemo } from 'react'
 
 export default function StatsCards() {

@@ -1,6 +1,6 @@
-import { useAuth } from '../contexts/AuthContext'
-import StatsCards from '../components/Dashboard/StatsCards'
-import Graficos from '../components/Dashboard/Graficos'
+import { useAuth } from '../../../contexts/AuthContext'
+import StatsCards from '../components/StatsCards'
+import Graficos from '../components/Graficos'
 
 export default function Dashboard() {
   const { user } = useAuth()

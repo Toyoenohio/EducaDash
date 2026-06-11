@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
 import { usePagos } from '../hooks/usePagos'
-import { useInscripciones } from '../hooks/useInscripciones'
-import { useAlumnos } from '../hooks/useAlumnos'
-import { useCursos } from '../hooks/useCursos'
+import { useInscripciones } from '../../inscripciones/hooks/useInscripciones'
+import { useAlumnos } from '../../alumnos/hooks/useAlumnos'
+import { useCursos } from '../../cursos/hooks/useCursos'
 import { CreditCard, CheckCircle, Clock, DollarSign, X } from 'lucide-react'
 
 const MESES = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']

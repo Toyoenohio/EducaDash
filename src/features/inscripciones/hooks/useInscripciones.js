@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
-import { mockInscripciones as initialMockInscripciones } from '../lib/mockData'
+import { supabase } from '../../../lib/supabase'
+import { mockInscripciones as initialMockInscripciones } from '../../../lib/mockData'
 
 const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 

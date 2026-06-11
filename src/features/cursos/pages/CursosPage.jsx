@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useCursos } from '../hooks/useCursos'
-import { useSedes } from '../hooks/useSedes'
-import { mockInscripciones } from '../lib/mockData'
+import { useSedes } from '../../sedes/hooks/useSedes'
+import { mockInscripciones } from '../../../lib/mockData'
 import { Plus, Pencil, Trash2, X, BookOpen, ChevronDown, ChevronUp, Clock, Users, UserCircle } from 'lucide-react'
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']

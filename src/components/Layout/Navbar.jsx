@@ -1,7 +1,7 @@
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSede } from '../../contexts/SedeContext'
-import { useSedes } from '../../hooks/useSedes'
+import { useSedes } from '../../features/sedes/hooks/useSedes'
 import { Menu, Bell } from 'lucide-react'
 
 const routeTitles = {

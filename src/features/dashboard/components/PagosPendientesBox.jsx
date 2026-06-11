@@ -1,7 +1,7 @@
 import { CheckCircle, AlertTriangle, Clock } from 'lucide-react'
-import { useSede } from '../../contexts/SedeContext'
-import { useDashboard } from '../../hooks/useDashboard'
-import { usePagos } from '../../hooks/usePagos'
+import { useSede } from '../../../contexts/SedeContext'
+import { useDashboard } from '../hooks/useDashboard'
+import { usePagos } from '../../pagos/hooks/usePagos'
 import { useState, useMemo } from 'react'
 
 export default function PagosPendientesBox() {

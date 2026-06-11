@@ -5,8 +5,8 @@ import {
   Title, Tooltip, Legend, ArcElement,
   PointElement, LineElement, Filler
 } from 'chart.js'
-import { useSede } from '../../contexts/SedeContext'
-import { useDashboard } from '../../hooks/useDashboard'
+import { useSede } from '../../../contexts/SedeContext'
+import { useDashboard } from '../hooks/useDashboard'
 import { useMemo } from 'react'
 
 import PagosPendientesBox from './PagosPendientesBox'
