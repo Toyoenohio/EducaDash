@@ -40,12 +40,22 @@ export function AuthProvider({ children }) {
     return () => listener?.subscription.unsubscribe()
   }, [])
 
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     if (useMockData) {
       setUser(mockUser)
       return { user: mockUser }
     }
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    
+    // Check if it's an email format, otherwise ask RPC
+    let finalEmail = identifier;
+    if (!identifier.includes('@')) {
+      const { data: rpcEmail, error: rpcError } = await supabase.rpc('get_login_email', { identifier })
+      if (!rpcError && rpcEmail) {
+        finalEmail = rpcEmail
+      }
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email: finalEmail, password })
     if (error) throw error
     return data
   }

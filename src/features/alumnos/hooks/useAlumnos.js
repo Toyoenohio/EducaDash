@@ -53,24 +53,23 @@ export function useAlumnos(pagina = 1, limit = 10, busqueda = '') {
          return { ...cleanData, id: generateId(), created_at: new Date().toISOString() }
       }
 
-      if (cleanData.email) {
-        const { data: authData, error: authError } = await supabase.functions.invoke('create-student', {
-          body: { 
-            email: cleanData.email, 
-            password: 'Educa2026*', 
-            metadata: {
-              nombre: cleanData.nombre,
-              apellido: cleanData.apellido,
-              cedula: cleanData.cedula
-            }
+      const authEmailToUse = cleanData.email || `${cleanData.cedula.replace(/\s+/g, '')}@educadash.local`
+      const { data: authData, error: authError } = await supabase.functions.invoke('create-student', {
+        body: { 
+          email: authEmailToUse, 
+          password: 'Educa2026*', 
+          metadata: {
+            nombre: cleanData.nombre,
+            apellido: cleanData.apellido,
+            cedula: cleanData.cedula
           }
-        });
-
-        if (authError || !authData?.user) {
-           console.error("Error creating auth user via Edge Function:", authError);
-        } else if (authData?.user) {
-           cleanData.id = authData.user.id;
         }
+      });
+
+      if (authError || !authData?.user) {
+         console.error("Error creating auth user via Edge Function:", authError);
+      } else if (authData?.user) {
+         cleanData.id = authData.user.id;
       }
 
       const { data, error } = await supabase.from('alumnos').insert([cleanData]).select()

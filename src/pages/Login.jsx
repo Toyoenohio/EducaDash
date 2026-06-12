@@ -114,16 +114,16 @@ export default function Login() {
               {/* Email field */}
               <div className="space-y-1.5">
                 <label htmlFor="email" className="block text-sm font-medium text-on-surface-variant font-label">
-                  Correo electrónico
+                  Cédula o Correo Electrónico
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant/50" />
                   <input
                     id="email"
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@educa.com"
+                    placeholder="V12345678 o correo@educa.com"
                     required
                     disabled={loading}
                     className="w-full pl-11 pr-4 py-3 bg-surface-container-low border border-outline/20 rounded-xl text-on-surface placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-200 disabled:opacity-50"
