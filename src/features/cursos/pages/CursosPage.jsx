@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useCursos } from '../hooks/useCursos'
 import { useSedes } from '../../sedes/hooks/useSedes'
-import { mockInscripciones } from '../../../lib/mockData'
+import { useInscripciones } from '../../inscripciones/hooks/useInscripciones'
+import { useObligaciones } from '../../pagos/hooks/useObligaciones'
 import { Plus, Pencil, Trash2, X, BookOpen, ChevronDown, ChevronUp, Clock, Users, UserCircle } from 'lucide-react'
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
@@ -9,6 +10,9 @@ const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sáb
 export default function CursosPage() {
   const { cursos, secciones, loading, createCurso, updateCurso, deleteCurso } = useCursos()
   const { sedes } = useSedes()
+  const { inscripciones, loading: inscLoading } = useInscripciones()
+  const { obligaciones: allObligaciones, loading: obligLoading } = useObligaciones()
+
   const [view, setView] = useState('list') // 'list' | 'form' | 'alumnos'
   const [alumnosModal, setAlumnosModal] = useState(null) // Keeps the course data for the alumnos view
   const [editing, setEditing] = useState(null)
@@ -64,7 +68,7 @@ export default function CursosPage() {
     })})
   }
 
-  if (loading) return (<div className="space-y-4">{[1,2,3,4].map(i => <div key={i} className="skeleton h-20 w-full" />)}</div>)
+  if (loading || inscLoading || obligLoading) return (<div className="space-y-4">{[1,2,3,4].map(i => <div key={i} className="skeleton h-20 w-full" />)}</div>)
 
   if (view === 'form') {
     return (
@@ -134,7 +138,7 @@ export default function CursosPage() {
   }
 
   if (view === 'alumnos') {
-    const inscritos = mockInscripciones.filter(i => i.seccion?.curso_sede?.curso?.id === alumnosModal?.id)
+    const inscritos = inscripciones.filter(i => i.seccion?.curso_sede?.curso?.id === alumnosModal?.id)
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center gap-4">
@@ -148,22 +152,63 @@ export default function CursosPage() {
           {inscritos.length === 0 ? (
             <p className="text-center text-on-surface-variant py-8">No hay alumnos inscritos en este curso.</p>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {inscritos.map(insc => (
-                <div key={insc.id} className="flex items-center justify-between p-4 border border-surface-variant/30 rounded-xl hover:bg-surface-container-low transition-colors">
-                  <div className="flex items-center gap-3">
-                    <UserCircle className="w-10 h-10 text-outline" />
-                    <div>
-                      <p className="font-bold text-sm text-on-surface">{insc.alumno?.nombre} {insc.alumno?.apellido}</p>
-                      <p className="text-xs text-on-surface-variant">{insc.alumno?.email}</p>
+            <div className="space-y-4">
+              <div className="flex gap-4 items-center text-xs text-on-surface-variant mb-4 px-4 bg-surface-container-lowest p-3 rounded-lg border border-surface-variant/20">
+                <span className="font-bold uppercase tracking-wide">Leyenda:</span>
+                <span className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-success"></div> Pagado</span>
+                <span className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-error"></div> Vencido</span>
+                <span className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-tertiary"></div> Pendiente</span>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {inscritos.map(insc => {
+                  // Get obligaciones for this enrollment
+                  const alumnoObligs = allObligaciones
+                    .filter(o => o.inscripcion_id === insc.id)
+                    .sort((a, b) => {
+                      if (a.concepto === 'inscripcion') return -1
+                      if (b.concepto === 'inscripcion') return 1
+                      if (a.concepto === 'certificado_carnet') return 1
+                      if (b.concepto === 'certificado_carnet') return -1
+                      return (a.numero_semana || 0) - (b.numero_semana || 0)
+                    })
+                  
+                  return (
+                    <div key={insc.id} className="p-4 border border-surface-variant/30 rounded-xl hover:bg-surface-container-low transition-colors">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <UserCircle className="w-10 h-10 text-outline" />
+                          <div>
+                            <p className="font-bold text-sm text-on-surface">{insc.alumno?.nombre} {insc.alumno?.apellido}</p>
+                            <p className="text-xs text-on-surface-variant">{insc.alumno?.email || insc.alumno?.telefono}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className={insc.estado === 'activa' ? 'badge-success text-[10px]' : insc.estado === 'pendiente' || insc.estado === 'preinscrito' ? 'badge-warning text-[10px]' : insc.estado === 'suspendido' ? 'badge-error text-[10px]' : 'badge-error text-[10px]'}>{insc.estado}</span>
+                          <p className="text-xs text-on-surface-variant mt-1 font-bold">Sec. {insc.seccion?.codigo}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Obligaciones Visual Timeline */}
+                      <div className="mt-3 pt-3 border-t border-surface-variant/20">
+                        <p className="text-xs font-label font-bold text-on-surface-variant mb-2">Inscr. + {alumnoObligs.filter(o => o.concepto === 'cuota_semanal').length} Cuotas Semanales{alumnoObligs.some(o => o.concepto === 'certificado_carnet') ? ' + Cert.' : ''}</p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {alumnoObligs.map((o) => (
+                            <div 
+                              key={o.id} 
+                              className={`w-4 h-4 rounded-full shadow-sm transition-transform hover:scale-150 cursor-help ${
+                                o.estado === 'pagado' ? 'bg-success' :
+                                o.estado === 'vencido' ? 'bg-error' :
+                                'bg-tertiary/50'
+                              }`}
+                              title={`${o.concepto === 'inscripcion' ? 'Inscripción' : o.concepto === 'certificado_carnet' ? 'Certificado' : `Sem. ${o.numero_semana}`} — $${Number(o.monto).toFixed(2)} — ${o.estado}${Number(o.total_abonado) > 0 && o.estado !== 'pagado' ? ` (abonado: $${Number(o.total_abonado).toFixed(2)})` : ''}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <span className={insc.estado === 'activa' ? 'badge-success text-[10px]' : insc.estado === 'pendiente' ? 'badge-warning text-[10px]' : 'badge-error text-[10px]'}>{insc.estado}</span>
-                    <p className="text-xs text-on-surface-variant mt-1 font-bold">Sec. {insc.seccion?.codigo}</p>
-                  </div>
-                </div>
-              ))}
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>

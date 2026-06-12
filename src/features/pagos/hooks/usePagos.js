@@ -19,6 +19,8 @@ export function usePagos() {
         .select(`
           *,
           inscripcion:inscripcion_id(
+            id,
+            estado,
             alumno:alumno_id(nombre, apellido, cedula),
             seccion:seccion_id(
               codigo,
@@ -29,8 +31,7 @@ export function usePagos() {
             )
           )
         `)
-        .order('anio', { ascending: false })
-        .order('mes', { ascending: false })
+        .order('created_at', { ascending: false })
       if (error) throw error
       return data || []
     }
@@ -39,72 +40,56 @@ export function usePagos() {
   const pagosPendientes = pagos.filter(p => !p.pagado)
   const pagosPagados = pagos.filter(p => p.pagado)
 
+  // Legacy createPago - now redirects to registrar-pago Edge Function
   const createMutation = useMutation({
     mutationFn: async (pago) => {
       if (useMockData) {
-        const newPago = { ...pago, id: crypto.randomUUID() }
-        
-        if (pago.concepto === 'inscripcion') {
-          const { mockInscripciones } = await import('../../../lib/mockData')
-          const inscIndex = mockInscripciones.findIndex(i => i.id === pago.inscripcion_id)
-          if (inscIndex >= 0 && mockInscripciones[inscIndex].estado === 'pendiente') {
-            mockInscripciones[inscIndex].estado = 'activa'
-          }
-        }
+        const newPago = { ...pago, id: crypto.randomUUID(), pagado: true, fecha_pago: new Date().toISOString() }
         return newPago
       }
-      
-      const { data, error } = await supabase.from('pagos').insert([pago]).select()
+
+      // Use Edge Function for proper obligation distribution
+      const { data, error } = await supabase.functions.invoke('registrar-pago', {
+        body: {
+          inscripcion_id: pago.inscripcion_id,
+          monto: pago.monto,
+          metodo_pago: pago.metodo_pago,
+          referencia: pago.referencia,
+          obligacion_ids: pago.obligacion_ids || [],
+        }
+      })
       if (error) throw error
-      
-      if (pago.concepto === 'inscripcion' && data && data.length > 0) {
-        await supabase.from('inscripciones').update({ estado: 'activa' }).eq('id', pago.inscripcion_id)
-      }
-      
-      return data[0]
+      return data?.pago || data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pagos'] })
+      queryClient.invalidateQueries({ queryKey: ['obligaciones'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['inscripciones'] })
     }
   })
 
+  // Legacy marcarPagado - kept for backward compatibility
   const marcarPagadoMutation = useMutation({
     mutationFn: async ({ id, detalles }) => {
-      const updates = {
+      if (useMockData) {
+        return { id, ...detalles, pagado: true, fecha_pago: new Date().toISOString() }
+      }
+      
+      const { data, error } = await supabase.from('pagos').update({
         pagado: true,
         fecha_pago: new Date().toISOString(),
         metodo_pago: detalles.metodo_pago,
         referencia: detalles.referencia || null,
-        concepto: detalles.concepto || 'cuota_mensual',
-      }
-      
-      if (useMockData) {
-        if (updates.concepto === 'inscripcion') {
-          const { mockInscripciones } = await import('../../../lib/mockData')
-          const pago = pagos.find(p => p.id === id)
-          if (pago) {
-            const inscIndex = mockInscripciones.findIndex(i => i.id === pago.inscripcion_id)
-            if (inscIndex >= 0 && mockInscripciones[inscIndex].estado === 'pendiente') {
-              mockInscripciones[inscIndex].estado = 'activa'
-            }
-          }
-        }
-        return { id, ...updates }
-      }
-      
-      const { data, error } = await supabase.from('pagos').update(updates).eq('id', id).select()
+      }).eq('id', id).select()
       if (error) throw error
-      
-      if (updates.concepto === 'inscripcion' && data && data.length > 0) {
-        await supabase.from('inscripciones').update({ estado: 'activa' }).eq('id', data[0].inscripcion_id)
-      }
-      
       return data[0]
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pagos'] })
+      queryClient.invalidateQueries({ queryKey: ['obligaciones'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['inscripciones'] })
     }
   })
 

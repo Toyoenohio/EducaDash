@@ -1,61 +1,74 @@
-import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabase'
 import { mockSedes as initialMockSedes } from '../../../lib/mockData'
 
 const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 
+// Global mock state for Sedes when VITE_USE_MOCK_DATA is true
+let mockSedesState = [...initialMockSedes]
+
 export function useSedes() {
-  const [sedes, setSedes] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
 
-  const fetchSedes = async () => {
-    setLoading(true)
-    if (useMockData) {
-      await new Promise(r => setTimeout(r, 500)) // Simulate network delay
-      setSedes(initialMockSedes)
-      setLoading(false)
-      return
-    }
-    try {
+  const { data: sedes = [], isLoading: loading, refetch: fetchSedes } = useQuery({
+    queryKey: ['sedes'],
+    queryFn: async () => {
+      if (useMockData) {
+        await new Promise(r => setTimeout(r, 400))
+        return [...mockSedesState]
+      }
       const { data, error } = await supabase.from('sedes').select('*').order('created_at')
-      if (!error) setSedes(data)
-    } finally {
-      setLoading(false)
+      if (error) throw error
+      return data || []
     }
+  })
+
+  const { mutateAsync: createSede } = useMutation({
+    mutationFn: async (sede) => {
+      if (useMockData) {
+        const newSede = { ...sede, id: crypto.randomUUID(), created_at: new Date().toISOString() }
+        mockSedesState.push(newSede)
+        return newSede
+      }
+      const { data, error } = await supabase.from('sedes').insert([sede]).select()
+      if (error) throw error
+      return data[0]
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sedes'] })
+  })
+
+  const { mutateAsync: updateSede } = useMutation({
+    mutationFn: async ({ id, updates }) => {
+      if (useMockData) {
+        mockSedesState = mockSedesState.map(s => s.id === id ? { ...s, ...updates } : s)
+        return { id, ...updates }
+      }
+      const { data, error } = await supabase.from('sedes').update(updates).eq('id', id).select()
+      if (error) throw error
+      return data[0]
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sedes'] })
+  })
+
+  const { mutateAsync: deleteSede } = useMutation({
+    mutationFn: async (id) => {
+      if (useMockData) {
+        mockSedesState = mockSedesState.filter(s => s.id !== id)
+        return null
+      }
+      const { error } = await supabase.from('sedes').delete().eq('id', id)
+      if (error) throw error
+      return null
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['sedes'] })
+  })
+
+  return { 
+    sedes, 
+    loading, 
+    fetchSedes, 
+    createSede, 
+    updateSede: (id, updates) => updateSede({ id, updates }), 
+    deleteSede 
   }
-
-  const createSede = async (sede) => {
-    if (useMockData) {
-      const newSede = { ...sede, id: crypto.randomUUID(), created_at: new Date().toISOString() }
-      setSedes(prev => [...prev, newSede])
-      return { data: [newSede], error: null }
-    }
-    const { data, error } = await supabase.from('sedes').insert([sede]).select()
-    if (!error) setSedes(prev => [...prev, data[0]])
-    return { data, error }
-  }
-
-  const updateSede = async (id, updates) => {
-    if (useMockData) {
-      setSedes(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
-      return { data: [{ id, ...updates }], error: null }
-    }
-    const { data, error } = await supabase.from('sedes').update(updates).eq('id', id).select()
-    if (!error) setSedes(prev => prev.map(s => s.id === id ? data[0] : s))
-    return { data, error }
-  }
-
-  const deleteSede = async (id) => {
-    if (useMockData) {
-      setSedes(prev => prev.filter(s => s.id !== id))
-      return { error: null }
-    }
-    const { error } = await supabase.from('sedes').delete().eq('id', id)
-    if (!error) setSedes(prev => prev.filter(s => s.id !== id))
-    return { error }
-  }
-
-  useEffect(() => { fetchSedes() }, [])
-
-  return { sedes, loading, fetchSedes, createSede, updateSede, deleteSede }
 }

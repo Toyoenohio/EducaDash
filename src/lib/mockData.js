@@ -21,23 +21,36 @@ export const mockSedes = [
     id: SEDE_IDS.barcelona,
     nombre: 'EDUCA Sede Barcelona',
     direccion: 'Av. Diagonal 123, Barcelona',
-    inicio_courses: '2026-01-15',
+    inicio_cursos: '2026-01-15',
+    activa: true,
     created_at: '2025-06-01',
   },
   {
     id: SEDE_IDS.valencia,
     nombre: 'EDUCA Sede Valencia',
     direccion: 'Calle Colón 45, Valencia',
-    inicio_courses: '2026-02-01',
+    inicio_cursos: '2026-02-01',
+    activa: true,
     created_at: '2025-07-15',
   },
   {
     id: SEDE_IDS.madrid,
     nombre: 'EDUCA Sede Madrid',
     direccion: 'Gran Vía 78, Madrid',
-    inicio_courses: '2026-03-01',
+    inicio_cursos: '2026-03-01',
+    activa: true,
     created_at: '2025-09-20',
   },
+]
+
+// ── Sede Costos ──────────────────────────────────────────────
+export const mockSedeCostos = [
+  { id: uuid(), sede_id: SEDE_IDS.barcelona, concepto: 'inscripcion', monto: 5.00, moneda: '$', duracion_semanas: null },
+  { id: uuid(), sede_id: SEDE_IDS.barcelona, concepto: 'cuota_semanal', monto: 12.00, moneda: '$', duracion_semanas: 15 },
+  { id: uuid(), sede_id: SEDE_IDS.barcelona, concepto: 'certificado_carnet', monto: 15.00, moneda: '$', duracion_semanas: null },
+  { id: uuid(), sede_id: SEDE_IDS.valencia, concepto: 'inscripcion', monto: 5.00, moneda: '$', duracion_semanas: null },
+  { id: uuid(), sede_id: SEDE_IDS.valencia, concepto: 'cuota_semanal', monto: 12.00, moneda: '$', duracion_semanas: 15 },
+  { id: uuid(), sede_id: SEDE_IDS.valencia, concepto: 'certificado_carnet', monto: 15.00, moneda: '$', duracion_semanas: null },
 ]
 
 // ── Cursos ───────────────────────────────────────────────────
@@ -153,6 +166,7 @@ export const mockInscripciones = mockAlumnos.slice(0, 15).map((alumno, i) => ({
   id: uuid(),
   alumno_id: alumno.id,
   seccion_id: mockSecciones[i % mockSecciones.length].id,
+  fecha_inscripcion: `2026-0${1 + (i % 5)}-${String(1 + i).padStart(2, '0')}`,
   monto_inscripcion: 5.0,
   estado: i < 12 ? 'activa' : 'retirada',
   created_at: `2026-0${1 + (i % 5)}-${String(1 + i).padStart(2, '0')}`,
@@ -167,34 +181,115 @@ export const mockInscripciones = mockAlumnos.slice(0, 15).map((alumno, i) => ({
   },
 }))
 
-// ── Pagos ────────────────────────────────────────────────────
+// ── Obligaciones (generadas para las inscripciones activas) ──
+function generateObligaciones(inscripcion, sedeInicioCursos) {
+  const obligaciones = []
+  const inscDate = inscripcion.fecha_inscripcion || inscripcion.created_at
+  const startDate = new Date(sedeInicioCursos || inscDate)
+
+  // 1. Obligación de inscripción
+  obligaciones.push({
+    id: uuid(),
+    inscripcion_id: inscripcion.id,
+    concepto: 'inscripcion',
+    numero_semana: null,
+    monto: 5.00,
+    fecha_vencimiento: inscDate,
+    created_at: inscDate,
+  })
+
+  // 2. Cuotas semanales (15 semanas)
+  for (let i = 1; i <= 15; i++) {
+    const vencimiento = new Date(startDate)
+    vencimiento.setDate(vencimiento.getDate() + i * 7)
+    obligaciones.push({
+      id: uuid(),
+      inscripcion_id: inscripcion.id,
+      concepto: 'cuota_semanal',
+      numero_semana: i,
+      monto: 12.00,
+      fecha_vencimiento: vencimiento.toISOString().slice(0, 10),
+      created_at: inscDate,
+    })
+  }
+
+  return obligaciones
+}
+
+export const mockObligaciones = mockInscripciones
+  .filter(i => i.estado === 'activa')
+  .flatMap((insc, idx) => {
+    const sede = mockSedes[Math.floor((idx % mockSecciones.length) / 6) % mockSedes.length]
+    return generateObligaciones(insc, sede.inicio_cursos)
+  })
+
+// ── Pagos & Pago-Obligaciones ────────────────────────────────
 const METODOS = ['efectivo', 'transferencia', 'tarjeta', 'zelle']
+
+// Generate payments that cover some obligations
+export const mockPagoObligaciones = []
 
 export const mockPagos = mockInscripciones
   .filter((i) => i.estado === 'activa')
-  .flatMap((insc, i) =>
-    [1, 2, 3, 4, 5, 6].map((mes) => ({
-      id: uuid(),
-      inscripcion_id: insc.id,
-      mes,
-      anio: 2026,
-      monto: 12.0,
-      concepto: 'cuota_mensual',
-      metodo_pago: mes <= 4 ? METODOS[i % METODOS.length] : null,
-      pagado: mes <= 4,
-      fecha_pago:
-        mes <= 4
-          ? `2026-${String(mes).padStart(2, '0')}-${String(5 + (i % 15)).padStart(2, '0')}`
-          : null,
-      fecha_vencimiento: `2026-${String(mes).padStart(2, '0')}-28`,
-      referencia:
-        mes <= 4
-          ? `REF-${2026}${String(mes).padStart(2, '0')}${String(i).padStart(4, '0')}`
-          : null,
-      // Enriched
-      inscripcion: insc,
-    }))
-  )
+  .flatMap((insc, i) => {
+    const inscObligaciones = mockObligaciones.filter(o => o.inscripcion_id === insc.id)
+    const pagos = []
+
+    // Pay inscription + first 4 weekly payments
+    const obligacionesToPay = inscObligaciones.filter(o =>
+      o.concepto === 'inscripcion' || (o.concepto === 'cuota_semanal' && o.numero_semana <= 4)
+    )
+
+    obligacionesToPay.forEach((oblig, j) => {
+      const pagoId = uuid()
+      const fechaPago = `2026-0${1 + (j % 5)}-${String(5 + (i % 15)).padStart(2, '0')}`
+      pagos.push({
+        id: pagoId,
+        inscripcion_id: insc.id,
+        mes: 1 + j,
+        anio: 2026,
+        monto: oblig.monto,
+        concepto: oblig.concepto === 'inscripcion' ? 'inscripcion' : 'cuota_semanal',
+        metodo_pago: METODOS[i % METODOS.length],
+        pagado: true,
+        fecha_pago: fechaPago,
+        fecha_vencimiento: oblig.fecha_vencimiento,
+        referencia: `REF-${2026}${String(j + 1).padStart(2, '0')}${String(i).padStart(4, '0')}`,
+        inscripcion: insc,
+      })
+      mockPagoObligaciones.push({
+        id: uuid(),
+        pago_id: pagoId,
+        obligacion_id: oblig.id,
+        monto_abonado: oblig.monto,
+        created_at: fechaPago,
+      })
+    })
+
+    // Generate unpaid obligations for weeks 5-6 (pending, not yet due)
+    const pendingObligs = inscObligaciones.filter(o =>
+      o.concepto === 'cuota_semanal' && o.numero_semana >= 5 && o.numero_semana <= 6
+    )
+    pendingObligs.forEach((oblig) => {
+      const pagoId = uuid()
+      pagos.push({
+        id: pagoId,
+        inscripcion_id: insc.id,
+        mes: oblig.numero_semana,
+        anio: 2026,
+        monto: oblig.monto,
+        concepto: 'cuota_semanal',
+        metodo_pago: null,
+        pagado: false,
+        fecha_pago: null,
+        fecha_vencimiento: oblig.fecha_vencimiento,
+        referencia: null,
+        inscripcion: insc,
+      })
+    })
+
+    return pagos
+  })
 
 // ── Asistencia ───────────────────────────────────────────────
 const ESTADOS_ASISTENCIA = ['presente', 'ausente', 'tardanza', 'presente', 'presente', 'presente']

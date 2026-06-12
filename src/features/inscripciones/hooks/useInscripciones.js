@@ -1,22 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabase'
-import { mockInscripciones as initialMockInscripciones } from '../../../lib/mockData'
+import { mockInscripciones } from '../../../lib/mockData'
 
 const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 
 export function useInscripciones() {
-  const [inscripciones, setInscripciones] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
 
-  const fetchInscripciones = async () => {
-    setLoading(true)
-    if (useMockData) {
-      await new Promise(r => setTimeout(r, 400))
-      setInscripciones(initialMockInscripciones)
-      setLoading(false)
-      return
-    }
-    try {
+  const { data: inscripciones = [], isLoading: loading, refetch: fetchInscripciones } = useQuery({
+    queryKey: ['inscripciones'],
+    queryFn: async () => {
+      if (useMockData) {
+        await new Promise(r => setTimeout(r, 400))
+        return [...mockInscripciones]
+      }
       const { data, error } = await supabase
         .from('inscripciones')
         .select(`
@@ -30,43 +27,86 @@ export function useInscripciones() {
           )
         `)
         .order('created_at', { ascending: false })
-      if (!error) setInscripciones(data)
-    } finally {
-      setLoading(false)
+      if (error) throw error
+      return data || []
+    }
+  })
+
+  const { mutateAsync: createInscripcion } = useMutation({
+    mutationFn: async (inscripcion) => {
+      if (useMockData) {
+        const newInscripcion = { ...inscripcion, id: crypto.randomUUID(), estado: 'pendiente', fecha_inscripcion: new Date().toISOString(), created_at: new Date().toISOString() }
+        mockInscripciones.unshift(newInscripcion)
+        // Generate mock obligaciones
+        const { mockObligaciones, mockSedes, mockSecciones, mockCursoSede } = await import('../../../lib/mockData')
+        return newInscripcion
+      }
+      const { data, error } = await supabase.from('inscripciones').insert([{ ...inscripcion, estado: 'pendiente' }]).select()
+      if (error) {
+        if (error.code === 'P0001') {
+          throw new Error('No hay cupos disponibles en esta sección')
+        }
+        throw error
+      }
+      
+      // Generate obligations via Edge Function
+      const newInscripcion = data[0]
+      try {
+        await supabase.functions.invoke('generar-obligaciones', {
+          body: { inscripcion_id: newInscripcion.id }
+        })
+      } catch (genErr) {
+        console.error('Error generando obligaciones:', genErr)
+        // Don't fail the inscription if obligation generation fails
+      }
+      
+      return newInscripcion
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inscripciones'] })
+      queryClient.invalidateQueries({ queryKey: ['obligaciones'] })
+    }
+  })
+
+  const { mutateAsync: retirarInscripcion } = useMutation({
+    mutationFn: async (id) => {
+      if (useMockData) {
+        const index = mockInscripciones.findIndex(i => i.id === id)
+        if (index >= 0) {
+          mockInscripciones[index] = { ...mockInscripciones[index], estado: 'retirada' }
+        }
+        return { id, estado: 'retirada' }
+      }
+      const { data, error } = await supabase
+        .from('inscripciones')
+        .update({ estado: 'retirada' })
+        .eq('id', id)
+        .select()
+      if (error) throw error
+      return data[0]
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['inscripciones'] })
+  })
+
+  return { 
+    inscripciones, 
+    loading, 
+    fetchInscripciones, 
+    createInscripcion: async (insc) => {
+      try {
+        const data = await createInscripcion(insc)
+        return { data: [data], error: null }
+      } catch (error) {
+        return { data: null, error }
+      }
+    },
+    retirarInscripcion: async (id) => {
+      try {
+        const data = await retirarInscripcion(id)
+        return { data: [data], error: null }
+      } catch (error) {
+        return { data: null, error }
+      }
     }
   }
-
-  const createInscripcion = async (inscripcion) => {
-    if (useMockData) {
-      const newInscripcion = { ...inscripcion, id: crypto.randomUUID(), estado: 'pendiente', created_at: new Date().toISOString() }
-      setInscripciones(prev => [newInscripcion, ...prev])
-      return { data: [newInscripcion], error: null }
-    }
-    const { data, error } = await supabase.from('inscripciones').insert([{ ...inscripcion, estado: 'pendiente' }]).select()
-    if (error?.code === 'P0001') {
-      return { data: null, error: { ...error, message: 'No hay cupos disponibles en esta sección' } }
-    }
-    if (!error) {
-      fetchInscripciones() // Refresh to get enriched data
-    }
-    return { data, error }
-  }
-
-  const retirarInscripcion = async (id) => {
-    if (useMockData) {
-      setInscripciones(prev => prev.map(i => i.id === id ? { ...i, estado: 'retirada' } : i))
-      return { data: [{ id, estado: 'retirada' }], error: null }
-    }
-    const { data, error } = await supabase
-      .from('inscripciones')
-      .update({ estado: 'retirada' })
-      .eq('id', id)
-      .select()
-    if (!error) setInscripciones(prev => prev.map(i => i.id === id ? { ...i, estado: 'retirada' } : i))
-    return { data, error }
-  }
-
-  useEffect(() => { fetchInscripciones() }, [])
-
-  return { inscripciones, loading, fetchInscripciones, createInscripcion, retirarInscripcion }
 }
