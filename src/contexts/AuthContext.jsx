@@ -24,11 +24,17 @@ export function AuthProvider({ children }) {
       setLoading(false)
     })
     
-    // Also try to get initial session manually just in case
-    supabase.auth.getSession().then(({ data: { session } }) => {
-       if (!session) {
-         setLoading(false)
-       }
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      try {
+        if (session?.user && !user) {
+          const userWithRole = await getUserWithRole()
+          setUser(userWithRole)
+        }
+      } catch (err) {
+        console.error('Error fetching initial role:', err)
+      } finally {
+        setLoading(false)
+      }
     });
 
     return () => listener?.subscription.unsubscribe()

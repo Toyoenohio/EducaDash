@@ -16,21 +16,24 @@ export function useInscripciones() {
       setLoading(false)
       return
     }
-    const { data, error } = await supabase
-      .from('inscripciones')
-      .select(`
-        *,
-        alumno:alumnos(id, nombre, apellido, cedula, telefono),
-        seccion:secciones(id, codigo, dias, horario_inicio, horario_fin,
-          curso_sede:curso_sede_id(
-            curso:cursos(nombre),
-            sede:sedes(nombre)
+    try {
+      const { data, error } = await supabase
+        .from('inscripciones')
+        .select(`
+          *,
+          alumno:alumnos(id, nombre, apellido, cedula, telefono),
+          seccion:secciones(id, codigo, dias, horario_inicio, horario_fin,
+            curso_sede:curso_sede_id(
+              curso:cursos(nombre),
+              sede:sedes(nombre)
+            )
           )
-        )
-      `)
-      .order('created_at', { ascending: false })
-    if (!error) setInscripciones(data)
-    setLoading(false)
+        `)
+        .order('created_at', { ascending: false })
+      if (!error) setInscripciones(data)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const createInscripcion = async (inscripcion) => {

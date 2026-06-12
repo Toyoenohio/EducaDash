@@ -25,18 +25,21 @@ export function useCursos() {
       setLoading(false)
       return
     }
-    const { data: cursosData } = await supabase.from('cursos').select('*').order('nombre')
-    if (cursosData) setCursos(cursosData)
+    try {
+      const { data: cursosData } = await supabase.from('cursos').select('*').order('nombre')
+      if (cursosData) setCursos(cursosData)
 
-    const { data: seccionesData } = await supabase.from('secciones').select(`
-      *,
-      curso_sede:curso_sede_id (
-        sede:sedes(id, nombre),
-        curso:cursos(id, nombre)
-      )
-    `)
-    if (seccionesData) setSecciones(seccionesData)
-    setLoading(false)
+      const { data: seccionesData } = await supabase.from('secciones').select(`
+        *,
+        curso_sede:curso_sede_id (
+          sede:sedes(id, nombre),
+          curso:cursos(id, nombre)
+        )
+      `)
+      if (seccionesData) setSecciones(seccionesData)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const createCurso = async (cursoData) => {

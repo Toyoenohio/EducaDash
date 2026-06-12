@@ -16,9 +16,12 @@ export function useSedes() {
       setLoading(false)
       return
     }
-    const { data, error } = await supabase.from('sedes').select('*').order('created_at')
-    if (!error) setSedes(data)
-    setLoading(false)
+    try {
+      const { data, error } = await supabase.from('sedes').select('*').order('created_at')
+      if (!error) setSedes(data)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const createSede = async (sede) => {
