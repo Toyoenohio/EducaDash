@@ -49,7 +49,7 @@ export default function PagosPage() {
   }, [pendientes, vencidas])
 
   // When selecting an alumno to pay
-  const openRegistrarPago = (inscripcionId) => {
+  const openRegistrarPago = (inscripcionId = null) => {
     setSelectedInscripcionId(inscripcionId)
     setSelectedObligaciones([])
     setPayForm({ monto: '', metodo_pago: 'efectivo', referencia: '' })
@@ -137,10 +137,11 @@ export default function PagosPage() {
   )
 
   // ──────────────────────── VIEW: Registrar Pago ────────────────────────
-  if (view === 'registrarPago' && selectedInscripcionId) {
+  if (view === 'registrarPago') {
     const firstOblig = alumnoObligaciones[0]
-    const alumnoInfo = firstOblig?.inscripcion?.alumno
-    const seccionInfo = firstOblig?.inscripcion?.seccion
+    const currentInscripcion = inscripciones.find(i => i.id === selectedInscripcionId)
+    const alumnoInfo = firstOblig?.inscripcion?.alumno || currentInscripcion?.alumno
+    const seccionInfo = firstOblig?.inscripcion?.seccion || currentInscripcion?.seccion
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -148,12 +149,33 @@ export default function PagosPage() {
           <button onClick={() => setView('list')} className="p-2 rounded-lg hover:bg-surface-container-high text-on-surface-variant"><X className="w-5 h-5" /></button>
           <div>
             <h1 className="text-2xl font-bold text-on-surface">Registrar Pago</h1>
-            <p className="text-sm text-on-surface-variant">{alumnoInfo?.nombre} {alumnoInfo?.apellido} — {seccionInfo?.curso_sede?.curso?.nombre}</p>
+            {selectedInscripcionId ? (
+              <p className="text-sm text-on-surface-variant">{alumnoInfo?.nombre} {alumnoInfo?.apellido} — {seccionInfo?.curso_sede?.curso?.nombre}</p>
+            ) : (
+              <p className="text-sm text-on-surface-variant">Selecciona un alumno inscrito para continuar</p>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Obligaciones Selection */}
+        {!selectedInscripcionId ? (
+          <div className="card p-6">
+            <h2 className="font-bold text-on-surface mb-4">Seleccionar Alumno</h2>
+            <select 
+              className="input-field w-full max-w-2xl"
+              value=""
+              onChange={(e) => setSelectedInscripcionId(e.target.value)}
+            >
+              <option value="" disabled>Seleccione una inscripción...</option>
+              {inscripciones.map(i => (
+                <option key={i.id} value={i.id}>
+                  {i.alumno?.cedula} - {i.alumno?.nombre} {i.alumno?.apellido} ({i.seccion?.curso_sede?.curso?.nombre} - Sec {i.seccion?.codigo})
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Obligaciones Selection */}
           <div className="lg:col-span-2 card p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-on-surface">Seleccionar Obligaciones a Pagar</h2>
@@ -249,9 +271,10 @@ export default function PagosPage() {
                   {submitting ? 'Procesando...' : 'Confirmar Pago'}
                 </button>
               </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     )
   }
@@ -343,6 +366,9 @@ export default function PagosPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-on-surface">Gestión de Pagos</h1>
+        <button onClick={() => openRegistrarPago(null)} className="btn-primary flex items-center gap-2">
+          <CreditCard className="w-5 h-5" /> Registrar Pago
+        </button>
       </div>
 
       {/* Summary Cards */}
