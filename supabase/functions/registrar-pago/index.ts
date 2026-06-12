@@ -109,7 +109,7 @@ serve(async (req) => {
         mes: now.getMonth() + 1, // 1-12
         anio: now.getFullYear(),
         monto,
-        concepto: 'abono',
+        concepto: 'abono_' + Date.now(),
         metodo_pago,
         referencia: referencia ?? null,
         pagado: true,
