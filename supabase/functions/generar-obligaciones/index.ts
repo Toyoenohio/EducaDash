@@ -128,7 +128,8 @@ serve(async (req) => {
     }
 
     // 7. For concepto='cuota_semanal': generate N weekly obligations
-    const costoSemanal = costos.find((c: { concepto: string }) => c.concepto === 'cuota_semanal')
+    // We make sure to find the record that actually has duracion_semanas configured
+    const costoSemanal = costos.find((c: { concepto: string, duracion_semanas: number | null }) => c.concepto === 'cuota_semanal' && c.duracion_semanas)
     if (costoSemanal && costoSemanal.duracion_semanas) {
       const duracion = costoSemanal.duracion_semanas
 
