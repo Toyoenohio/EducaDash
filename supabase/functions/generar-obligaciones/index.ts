@@ -36,10 +36,10 @@ serve(async (req) => {
       throw new Error(`Inscripción no encontrada: ${inscripcionError?.message ?? 'ID inválido'}`)
     }
 
-    // 2. Get seccion → curso_sede_id
+    // 2. Get seccion → curso_sede_id, fecha_inicio
     const { data: seccion, error: seccionError } = await supabaseAdmin
       .from('secciones')
-      .select('id, curso_sede_id')
+      .select('id, curso_sede_id, fecha_inicio')
       .eq('id', inscripcion.seccion_id)
       .single()
 
@@ -69,8 +69,8 @@ serve(async (req) => {
       throw new Error(`Sede no encontrada: ${sedeError?.message ?? 'ID inválido'}`)
     }
 
-    if (!sede.inicio_cursos) {
-      throw new Error('La sede no tiene fecha de inicio de cursos configurada.')
+    if (!seccion.fecha_inicio && !sede.inicio_cursos) {
+      throw new Error('No hay fecha de inicio configurada (ni en la sección ni en la sede).')
     }
 
     // 5. Query sede_costos for this sede
@@ -110,7 +110,8 @@ serve(async (req) => {
       fecha_vencimiento: string
     }> = []
 
-    const inicioCursos = new Date(sede.inicio_cursos + 'T00:00:00')
+    const fechaBase = seccion.fecha_inicio || sede.inicio_cursos
+    const inicioCursos = new Date(fechaBase + 'T00:00:00')
 
     // 6. For concepto='inscripcion': create 1 obligation
     const costoInscripcion = costos.find((c: { concepto: string }) => c.concepto === 'inscripcion')

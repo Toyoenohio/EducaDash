@@ -21,7 +21,7 @@ export function useInscripciones() {
           alumno:alumnos(id, nombre, apellido, cedula, telefono),
           seccion:secciones(id, codigo, dias, horario_inicio, horario_fin,
             curso_sede:curso_sede_id(
-              curso:cursos(nombre),
+              curso:cursos(id, nombre),
               sede:sedes(nombre)
             )
           )

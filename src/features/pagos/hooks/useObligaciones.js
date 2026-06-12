@@ -53,7 +53,7 @@ export function useObligaciones(inscripcionId = null) {
             seccion:seccion_id(
               id, codigo,
               curso_sede:curso_sede_id(
-                curso:cursos(nombre),
+                curso:cursos(id, nombre),
                 sede:sedes(nombre)
               )
             )

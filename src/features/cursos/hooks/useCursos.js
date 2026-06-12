@@ -108,6 +108,7 @@ export function useCursos() {
               dias: sec.dias && sec.dias.length > 0 ? sec.dias : ['Por definir'],
               horario_inicio: sec.horario_inicio || '08:00:00',
               horario_fin: sec.horario_fin || '10:00:00',
+              fecha_inicio: sec.fecha_inicio || null,
               cupo_maximo: parseInt(sec.cupos, 10),
               cupo_disponible: parseInt(sec.cupos, 10),
               profesor: 'Por asignar'
@@ -145,6 +146,7 @@ export function useCursos() {
           if (sec.dias && sec.dias.length > 0) secUpdates.dias = sec.dias
           if (sec.horario_inicio) secUpdates.horario_inicio = sec.horario_inicio.length === 5 ? sec.horario_inicio + ':00' : sec.horario_inicio
           if (sec.horario_fin) secUpdates.horario_fin = sec.horario_fin.length === 5 ? sec.horario_fin + ':00' : sec.horario_fin
+          if (sec.fecha_inicio !== undefined) secUpdates.fecha_inicio = sec.fecha_inicio || null
           if (sec.cupos) {
             secUpdates.cupo_maximo = parseInt(sec.cupos, 10)
             secUpdates.cupo_disponible = parseInt(sec.cupos, 10) 
@@ -184,6 +186,7 @@ export function useCursos() {
                 dias: sec.dias && sec.dias.length > 0 ? sec.dias : ['Por definir'],
                 horario_inicio: sec.horario_inicio ? (sec.horario_inicio.length === 5 ? sec.horario_inicio + ':00' : sec.horario_inicio) : '08:00:00',
                 horario_fin: sec.horario_fin ? (sec.horario_fin.length === 5 ? sec.horario_fin + ':00' : sec.horario_fin) : '10:00:00',
+                fecha_inicio: sec.fecha_inicio || null,
                 cupo_maximo: parseInt(sec.cupos, 10),
                 cupo_disponible: parseInt(sec.cupos, 10),
                 profesor: 'Por asignar'
