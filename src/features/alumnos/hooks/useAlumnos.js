@@ -68,9 +68,10 @@ export function useAlumnos(pagina = 1, limit = 10, busqueda = '') {
 
       if (authError || !authData?.user) {
          console.error("Error creating auth user via Edge Function:", authError);
-      } else if (authData?.user) {
-         cleanData.id = authData.user.id;
+         throw new Error(authError?.message || 'Error al crear la cuenta de usuario');
       }
+      
+      cleanData.id = authData.user.id;
 
       const { data, error } = await supabase.from('alumnos').insert([cleanData]).select()
       if (error) throw error

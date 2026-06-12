@@ -13,20 +13,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (useMockData) return
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        // Only fetch role if we don't already have it
-        const userWithRole = await getUserWithRole()
-        setUser(userWithRole)
-      } else {
-        setUser(null)
-      }
-      setLoading(false)
-    })
-    
+    // Handle initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       try {
-        if (session?.user && !user) {
+        if (session?.user) {
           const userWithRole = await getUserWithRole()
           setUser(userWithRole)
         }
@@ -36,6 +26,20 @@ export function AuthProvider({ children }) {
         setLoading(false)
       }
     });
+
+    // Handle subsequent events
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        try {
+          const userWithRole = await getUserWithRole()
+          setUser(userWithRole)
+        } catch (err) {
+          console.error('Error updating role:', err)
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null)
+      }
+    })
 
     return () => listener?.subscription.unsubscribe()
   }, [])

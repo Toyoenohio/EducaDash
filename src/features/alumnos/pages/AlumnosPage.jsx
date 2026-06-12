@@ -29,7 +29,8 @@ export default function AlumnosPage() {
       }
       setView('list') 
     } catch (error) {
-      toast.error('Ocurrió un error al guardar el alumno')
+      console.error("Error completo al guardar alumno:", error);
+      toast.error(error.message || 'Ocurrió un error al guardar el alumno');
     }
   }
 
