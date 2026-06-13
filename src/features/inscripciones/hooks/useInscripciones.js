@@ -51,12 +51,18 @@ export function useInscripciones() {
       
       // Generate obligations via Edge Function
       const newInscripcion = data[0]
+      console.log(`[DEBUG] createInscripcion - Inscripción exitosa. ID: ${newInscripcion.id}. Intentando generar obligaciones...`);
       try {
-        await supabase.functions.invoke('generar-obligaciones', {
+        const { data: genData, error: genError } = await supabase.functions.invoke('generar-obligaciones', {
           body: { inscripcion_id: newInscripcion.id }
         })
+        if (genError) {
+          console.error(`[DEBUG] createInscripcion - La Edge Function 'generar-obligaciones' devolvió un error:`, genError);
+        } else {
+          console.log(`[DEBUG] createInscripcion - Obligaciones generadas con éxito:`, genData);
+        }
       } catch (genErr) {
-        console.error('Error generando obligaciones:', genErr)
+        console.error(`[DEBUG] createInscripcion - Excepción atrapada al llamar a la Edge Function:`, genErr)
         // Don't fail the inscription if obligation generation fails
       }
       

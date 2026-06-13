@@ -82,14 +82,27 @@ export function useAlumnos(pagina = 1, limit = 10, busqueda = '') {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }) => {
+      console.log(`[DEBUG] updateAlumno - Intentando actualizar ID: ${id}`);
+      console.log(`[DEBUG] updateAlumno - Datos originales:`, updates);
       const cleanUpdates = { ...updates }
       if (cleanUpdates.fecha_nacimiento === '') cleanUpdates.fecha_nacimiento = null
 
       if (useMockData) return { id, ...cleanUpdates }
       
+      console.log(`[DEBUG] updateAlumno - Payload limpio para DB:`, cleanUpdates);
       const { data, error } = await supabase.from('alumnos').update(cleanUpdates).eq('id', id).select()
-      if (error) throw error
-      return data[0]
+      
+      if (error) {
+        console.error(`[DEBUG] updateAlumno - Error desde Supabase:`, error);
+        throw error;
+      }
+      
+      console.log(`[DEBUG] updateAlumno - Respuesta exitosa Supabase:`, data);
+      
+      if (!data || data.length === 0) {
+        console.warn(`[DEBUG] updateAlumno - ALERTA: Supabase devolvió un arreglo vacío. ¿Falló RLS o el ID no existe?`);
+      }
+      return data?.[0]
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alumnos'] })
   })

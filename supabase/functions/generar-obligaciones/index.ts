@@ -127,9 +127,9 @@ serve(async (req) => {
       })
     }
 
-    // 7. For concepto='cuota_semanal': generate N weekly obligations
+    // 7. For concepto='cuota_semanal' (or 'clase_semanal'): generate N weekly obligations
     // We make sure to find the record that actually has duracion_semanas configured
-    const costoSemanal = costos.find((c: { concepto: string, duracion_semanas: number | null }) => c.concepto === 'cuota_semanal' && c.duracion_semanas)
+    const costoSemanal = costos.find((c: { concepto: string, duracion_semanas: number | null }) => (c.concepto === 'cuota_semanal' || c.concepto === 'clase_semanal') && c.duracion_semanas)
     if (costoSemanal && costoSemanal.duracion_semanas) {
       const duracion = costoSemanal.duracion_semanas
 
@@ -140,7 +140,7 @@ serve(async (req) => {
 
         obligaciones.push({
           inscripcion_id,
-          concepto: 'cuota_semanal',
+          concepto: 'cuota_semanal', // Always store as cuota_semanal for UI consistency
           numero_semana: i,
           monto: costoSemanal.monto,
           fecha_vencimiento: fechaStr,
