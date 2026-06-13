@@ -7,23 +7,54 @@ export default function SedesPage() {
   const { sedes, loading, createSede, updateSede, deleteSede } = useSedes()
   const [view, setView] = useState('list')
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ nombre: '', direccion: '', inicio_courses: '' })
+  const [form, setForm] = useState({ nombre: '', direccion: '', inicio_courses: '', costo_inscripcion: '', costo_semanal: '', duracion_semanas: '' })
 
-  const openCreate = () => { setEditing(null); setForm({ nombre: '', direccion: '', inicio_courses: '' }); setView('form') }
-  const openEdit = (sede) => { setEditing(sede); setForm({ nombre: sede.nombre, direccion: sede.direccion, inicio_courses: sede.inicio_courses || '' }); setView('form') }
+  const openCreate = () => { setEditing(null); setForm({ nombre: '', direccion: '', inicio_courses: '', costo_inscripcion: '', costo_semanal: '', duracion_semanas: '' }); setView('form') }
+  
+  const openEdit = (sede) => { 
+    setEditing(sede); 
+    const costos = sede.sede_costos || []
+    const cInsc = costos.find(c => c.concepto === 'inscripcion')
+    const cSem = costos.find(c => c.concepto === 'clase_semanal' || c.concepto === 'cuota_semanal')
+    
+    setForm({ 
+      nombre: sede.nombre, 
+      direccion: sede.direccion, 
+      inicio_courses: sede.inicio_courses || '',
+      costo_inscripcion: cInsc ? cInsc.monto : '',
+      costo_semanal: cSem ? cSem.monto : '',
+      duracion_semanas: cSem ? cSem.duracion_semanas : ''
+    }); 
+    setView('form') 
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    if (form.costo_semanal && !form.duracion_semanas) {
+      return toast.error('Si estableces un costo semanal, debes especificar la duración en semanas.')
+    }
+    
+    const costosToSave = []
+    if (form.costo_inscripcion) costosToSave.push({ concepto: 'inscripcion', monto: form.costo_inscripcion })
+    if (form.costo_semanal) costosToSave.push({ concepto: 'clase_semanal', monto: form.costo_semanal, duracion_semanas: form.duracion_semanas })
+
+    const updates = { nombre: form.nombre, direccion: form.direccion, inicio_courses: form.inicio_courses }
+
     try {
       if (editing) { 
-        await updateSede(editing.id, form) 
-        toast.success('Sede actualizada')
+        await updateSede({ id: editing.id, updates, costos: costosToSave }) 
+        toast.success('Sede y costos actualizados')
       } else { 
-        await createSede(form) 
-        toast.success('Sede creada')
+        const newSede = await createSede(updates) 
+        if (costosToSave.length > 0) {
+          await updateSede({ id: newSede.id, updates: {}, costos: costosToSave })
+        }
+        toast.success('Sede creada exitosamente')
       }
       setView('list')
     } catch (error) {
+      console.error(error)
       toast.error('Error al guardar sede')
     }
   }
@@ -51,14 +82,40 @@ export default function SedesPage() {
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center gap-4">
           <button onClick={() => setView('list')} className="p-2 rounded-lg hover:bg-surface-container-high text-on-surface-variant"><X className="w-5 h-5" /></button>
-          <h1 className="text-2xl font-bold text-on-surface">{editing ? 'Editar Sede' : 'Nueva Sede'}</h1>
+          <h1 className="text-2xl font-bold text-on-surface">{editing ? 'Editar Sede y Costos' : 'Nueva Sede'}</h1>
         </div>
-        <div className="card p-6 max-w-lg">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Nombre</label><input className="input-field" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required /></div>
-            <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Dirección</label><input className="input-field" value={form.direccion} onChange={e => setForm({...form, direccion: e.target.value})} required /></div>
-            <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Inicio de cursos</label><input type="date" className="input-field" value={form.inicio_courses} onChange={e => setForm({...form, inicio_courses: e.target.value})} /></div>
-            <div className="flex gap-3 pt-4 border-t border-surface-variant/20"><button type="button" onClick={() => setView('list')} className="btn-ghost flex-1">Cancelar</button><button type="submit" className="btn-primary flex-1">{editing ? 'Guardar Cambios' : 'Crear Sede'}</button></div>
+        <div className="card p-6 max-w-2xl">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            
+            <div className="space-y-4">
+              <h2 className="text-lg font-bold text-on-surface border-b border-surface-variant/20 pb-2">Datos Principales</h2>
+              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Nombre</label><input className="input-field" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required /></div>
+              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Dirección</label><input className="input-field" value={form.direccion} onChange={e => setForm({...form, direccion: e.target.value})} required /></div>
+              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Fecha de Inicio de Cursos</label><input type="date" className="input-field" value={form.inicio_courses} onChange={e => setForm({...form, inicio_courses: e.target.value})} /></div>
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="text-lg font-bold text-on-surface border-b border-surface-variant/20 pb-2">Costos Globales de la Sede</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Costo Inscripción ($)</label>
+                  <input type="number" step="0.01" className="input-field" placeholder="Ej: 5.00" value={form.costo_inscripcion} onChange={e => setForm({...form, costo_inscripcion: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Costo Semanal ($)</label>
+                  <input type="number" step="0.01" className="input-field" placeholder="Ej: 10.00" value={form.costo_semanal} onChange={e => setForm({...form, costo_semanal: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Duración (Semanas)</label>
+                  <input type="number" className="input-field" placeholder="Ej: 15" value={form.duracion_semanas} onChange={e => setForm({...form, duracion_semanas: e.target.value})} />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t border-surface-variant/20">
+              <button type="button" onClick={() => setView('list')} className="btn-ghost flex-1">Cancelar</button>
+              <button type="submit" className="btn-primary flex-1">Guardar Sede</button>
+            </div>
           </form>
         </div>
       </div>
