@@ -32,7 +32,7 @@ export default function AlumnosPage() {
 
     try {
       if (editing) { 
-        await updateAlumno({ id: editing.id, updates: form }) 
+        await updateAlumno(editing.id, form) 
         toast.success('Alumno actualizado exitosamente')
       } else { 
         await createAlumno(form) 
