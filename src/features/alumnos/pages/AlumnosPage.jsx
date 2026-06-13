@@ -18,7 +18,18 @@ export default function AlumnosPage() {
   const openEdit = (a) => { setEditing(a); setForm({ cedula: a.cedula, nombre: a.nombre, apellido: a.apellido, telefono: a.telefono || '', email: a.email || '', direccion: a.direccion || '', fecha_nacimiento: a.fecha_nacimiento || '' }); setView('form') }
   
   const handleSubmit = async (e) => { 
-    e.preventDefault(); 
+    if (e && e.preventDefault) e.preventDefault(); 
+    
+    // Explicit Validation
+    if (!form.cedula || form.cedula.trim() === '') return toast.error('La cédula es obligatoria');
+    if (!form.nombre || form.nombre.trim() === '') return toast.error('El nombre es obligatorio');
+    if (!form.apellido || form.apellido.trim() === '') return toast.error('El apellido es obligatorio');
+    
+    if (form.email && form.email.trim() !== '') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(form.email.trim())) return toast.error('El formato del correo es inválido');
+    }
+
     try {
       if (editing) { 
         await updateAlumno({ id: editing.id, updates: form }) 
@@ -57,17 +68,20 @@ export default function AlumnosPage() {
           <h1 className="text-2xl font-bold text-on-surface">{editing ? 'Editar Alumno' : 'Nuevo Alumno'}</h1>
         </div>
         <div className="card p-6 max-w-2xl">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 mt-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Cédula</label><input className="input-field" value={form.cedula} onChange={e => setForm({...form, cedula: e.target.value})} placeholder="V-12345678" required /></div>
-              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Nombre</label><input className="input-field" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required /></div>
-              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Apellido</label><input className="input-field" value={form.apellido} onChange={e => setForm({...form, apellido: e.target.value})} required /></div>
+              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Cédula *</label><input className="input-field" value={form.cedula} onChange={e => setForm({...form, cedula: e.target.value})} placeholder="V-12345678" /></div>
+              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Nombre *</label><input className="input-field" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} /></div>
+              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Apellido *</label><input className="input-field" value={form.apellido} onChange={e => setForm({...form, apellido: e.target.value})} /></div>
               <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Teléfono</label><input className="input-field" value={form.telefono} onChange={e => setForm({...form, telefono: e.target.value})} /></div>
               <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Email</label><input type="email" className="input-field" value={form.email} onChange={e => setForm({...form, email: e.target.value})} /></div>
               <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Fecha de Nacimiento</label><input type="date" className="input-field" value={form.fecha_nacimiento} onChange={e => setForm({...form, fecha_nacimiento: e.target.value})} /></div>
             </div>
             <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Dirección</label><input className="input-field" value={form.direccion} onChange={e => setForm({...form, direccion: e.target.value})} /></div>
-            <div className="flex gap-3 pt-4 border-t border-surface-variant/20"><button type="button" onClick={() => setView('list')} className="btn-ghost flex-1">Cancelar</button><button type="submit" className="btn-primary flex-1">{editing ? 'Guardar Cambios' : 'Crear Alumno'}</button></div>
+            <div className="flex gap-3 pt-4 border-t border-surface-variant/20">
+              <button type="button" onClick={() => setView('list')} className="btn-ghost flex-1">Cancelar</button>
+              <button type="button" onClick={handleSubmit} className="btn-primary flex-1">{editing ? 'Guardar Cambios' : 'Crear Alumno'}</button>
+            </div>
           </form>
         </div>
       </div>
