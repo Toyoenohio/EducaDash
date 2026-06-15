@@ -86,7 +86,7 @@ export function useSedes() {
     loading, 
     fetchSedes, 
     createSede, 
-    updateSede: (id, updates) => updateSede({ id, updates }), 
+    updateSede, 
     deleteSede 
   }
 }
