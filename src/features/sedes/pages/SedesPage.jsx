@@ -7,9 +7,9 @@ export default function SedesPage() {
   const { sedes, loading, createSede, updateSede, deleteSede } = useSedes()
   const [view, setView] = useState('list')
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ nombre: '', direccion: '', inicio_courses: '', costo_inscripcion: '', costo_semanal: '', duracion_semanas: '' })
+  const [form, setForm] = useState({ nombre: '', direccion: '', inicio_cursos: '', costo_inscripcion: '', costo_semanal: '', duracion_semanas: '' })
 
-  const openCreate = () => { setEditing(null); setForm({ nombre: '', direccion: '', inicio_courses: '', costo_inscripcion: '', costo_semanal: '', duracion_semanas: '' }); setView('form') }
+  const openCreate = () => { setEditing(null); setForm({ nombre: '', direccion: '', inicio_cursos: '', costo_inscripcion: '', costo_semanal: '', duracion_semanas: '' }); setView('form') }
   
   const openEdit = (sede) => { 
     setEditing(sede); 
@@ -20,7 +20,7 @@ export default function SedesPage() {
     setForm({ 
       nombre: sede.nombre, 
       direccion: sede.direccion, 
-      inicio_courses: sede.inicio_courses || '',
+      inicio_cursos: sede.inicio_cursos || '',
       costo_inscripcion: cInsc ? cInsc.monto : '',
       costo_semanal: cSem ? cSem.monto : '',
       duracion_semanas: cSem ? cSem.duracion_semanas : ''
@@ -39,7 +39,7 @@ export default function SedesPage() {
     if (form.costo_inscripcion) costosToSave.push({ concepto: 'inscripcion', monto: form.costo_inscripcion })
     if (form.costo_semanal) costosToSave.push({ concepto: 'clase_semanal', monto: form.costo_semanal, duracion_semanas: form.duracion_semanas })
 
-    const updates = { nombre: form.nombre, direccion: form.direccion, inicio_courses: form.inicio_courses }
+    const updates = { nombre: form.nombre, direccion: form.direccion, inicio_cursos: form.inicio_cursos }
 
     try {
       if (editing) { 
@@ -91,7 +91,7 @@ export default function SedesPage() {
               <h2 className="text-lg font-bold text-on-surface border-b border-surface-variant/20 pb-2">Datos Principales</h2>
               <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Nombre</label><input className="input-field" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required /></div>
               <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Dirección</label><input className="input-field" value={form.direccion} onChange={e => setForm({...form, direccion: e.target.value})} required /></div>
-              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Fecha de Inicio de Cursos</label><input type="date" className="input-field" value={form.inicio_courses} onChange={e => setForm({...form, inicio_courses: e.target.value})} /></div>
+              <div><label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Fecha de Inicio de Cursos</label><input type="date" className="input-field" value={form.inicio_cursos} onChange={e => setForm({...form, inicio_cursos: e.target.value})} /></div>
             </div>
 
             <div className="space-y-4">
