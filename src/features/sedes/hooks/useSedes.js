@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCachedQuery } from '../../../lib/useCachedQuery'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabase'
 import { mockSedes as initialMockSedes } from '../../../lib/mockData'
 
@@ -10,7 +11,7 @@ let mockSedesState = [...initialMockSedes]
 export function useSedes() {
   const queryClient = useQueryClient()
 
-  const { data: sedes = [], isLoading: loading, refetch: fetchSedes } = useQuery({
+  const { data: sedes = [], isLoading: loading, refetch: fetchSedes } = useCachedQuery({
     queryKey: ['sedes'],
     queryFn: async () => {
       if (useMockData) {

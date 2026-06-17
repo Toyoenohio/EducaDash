@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCachedQuery } from '../../../lib/useCachedQuery'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabase'
 import { mockPagos as initialMockPagos } from '../../../lib/mockData'
 
@@ -7,7 +8,7 @@ const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true'
 export function usePagos() {
   const queryClient = useQueryClient()
 
-  const { data: pagos = [], isLoading: loading } = useQuery({
+  const { data: pagos = [], isLoading: loading } = useCachedQuery({
     queryKey: ['pagos'],
     queryFn: async () => {
       if (useMockData) {

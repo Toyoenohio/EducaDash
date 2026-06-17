@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCachedQuery } from '../../../lib/useCachedQuery'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabase'
 import { mockAlumnos as initialMockAlumnos } from '../../../lib/mockData'
 
@@ -9,7 +10,7 @@ export function useAlumnos(pagina = 1, limit = 10, busqueda = '') {
   const from = (pagina - 1) * limit
   const to = from + limit - 1
 
-  const { data, isLoading: loading } = useQuery({
+  const { data, isLoading: loading } = useCachedQuery({
     queryKey: ['alumnos', pagina, busqueda],
     queryFn: async () => {
       if (useMockData) {

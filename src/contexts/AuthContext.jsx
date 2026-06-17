@@ -1,104 +1,105 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase, getUserWithRole } from '../lib/supabase'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import { mockUser } from '../lib/mockData'
 
 const AuthContext = createContext()
 
 const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true'
+const STORAGE_KEY = 'educa-auth'
 
-// Verifica sincrónicamente si hay sesión en localStorage — no depende de Supabase
-function hasLocalSession() {
+// ── helpers locales (cero dependencia de Supabase) ──
+
+function readLocalSession() {
   try {
-    const raw = localStorage.getItem('educa-auth')
-    if (!raw) return false
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
     const parsed = JSON.parse(raw)
-    return !!(parsed.access_token && parsed.expires_at > Math.floor(Date.now() / 1000))
-  } catch {
-    return false
+    if (!parsed.access_token || !parsed.user) return null
+    if (parsed.expires_at < Math.floor(Date.now() / 1000)) return null
+    return parsed
+  } catch { return null }
+}
+
+function buildUserFromLocalSession(session) {
+  if (!session?.user) return null
+  const u = session.user
+  return {
+    id: u.id,
+    email: u.email,
+    role: u.user_metadata?.role || 'estudiante',
+    sede_id: u.user_metadata?.sede_id || null,
+    alumno_id: u.user_metadata?.alumno_id || null,
+    ...u,
   }
 }
 
+// ── proveedor ──
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(useMockData ? mockUser : null)
-  const [loading, setLoading] = useState(!useMockData)
-  const [authError, setAuthError] = useState(null) // Error recuperable
+  // 1) Si hay sesión local → arrancar con usuario YA (sin esperar red)
+  const localSession = useMockData ? null : readLocalSession()
+  const [user, setUser] = useState(
+    useMockData ? mockUser : buildUserFromLocalSession(localSession)
+  )
+  // loading solo es true si NO hay sesión local Y no es mock
+  const [loading, setLoading] = useState(!useMockData && !localSession)
+  const [authError, setAuthError] = useState(null)
 
   useEffect(() => {
     if (useMockData) return
-
     let isMounted = true
-    let timeoutId = null
 
-    async function restoreSession() {
+    // Verificar en background (no bloquea la UI)
+    async function verifySession() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
 
         if (!isMounted) return
 
         if (session?.user) {
-          const userWithRole = await getUserWithRole()
-          if (isMounted) {
-            setUser(userWithRole)
-            setAuthError(null)
+          // Si el SDK devuelve usuario, actualizar con metadata fresca
+          const fresh = {
+            ...session.user,
+            role: session.user.user_metadata?.role || 'estudiante',
+            sede_id: session.user.user_metadata?.sede_id || null,
+            alumno_id: session.user.user_metadata?.alumno_id || null,
           }
-        } else if (hasLocalSession()) {
-          // Caso borde: localStorage tiene sesión pero getSession() devolvió null
-          // Posible token corrupto — limpiar y reintentar
-          console.warn('AuthContext: localStorage session invalid, clearing')
-          localStorage.removeItem('educa-auth')
+          setUser(fresh)
+        } else if (localSession) {
+          // El SDK dice que no hay sesión pero localStorage sí → token expirado/inválido
+          setUser(null)
         }
-      } catch (err) {
-        console.error('AuthContext: getSession() failed:', err)
-        if (isMounted && hasLocalSession()) {
-          // Sesión local existe pero Supabase falló → error de red, no borrar sesión
-          setAuthError('No se pudo verificar la sesión. Verificá tu conexión.')
-        }
+      } catch {
+        // Error de red: mantener el usuario local si existe
+        if (isMounted && !localSession) setUser(null)
       } finally {
         if (isMounted) setLoading(false)
       }
     }
 
-    // Si hay sesión en localStorage, restaurarla sin timeout agresivo
-    // Si NO hay sesión, dar 8 segundos máximo (evita spinner infinito)
-    const hasSession = hasLocalSession()
+    verifySession()
 
-    if (hasSession) {
-      // Hay datos locales → confiar en que getSession() resolverá
-      restoreSession()
-    } else {
-      // Sin datos locales → timeout de 8s como safety net
-      timeoutId = setTimeout(() => {
-        if (isMounted) {
-          console.warn('AuthContext: no local session, giving up after 8s')
-          setLoading(false)
-        }
-      }, 8000)
-      restoreSession().finally(() => clearTimeout(timeoutId))
-    }
-
-    // Auth state changes
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Listener para cambios de auth
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return
 
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        try {
-          const userWithRole = await getUserWithRole()
-          if (isMounted) {
-            setUser(userWithRole)
-            setAuthError(null)
-          }
-        } catch (err) {
-          console.error('AuthContext: error updating role:', err)
-        }
-      } else if (event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT') {
         setUser(null)
+        setAuthError(null)
+      } else if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        const fresh = {
+          ...session.user,
+          role: session.user.user_metadata?.role || 'estudiante',
+          sede_id: session.user.user_metadata?.sede_id || null,
+          alumno_id: session.user.user_metadata?.alumno_id || null,
+        }
+        setUser(fresh)
         setAuthError(null)
       }
     })
 
     return () => {
       isMounted = false
-      clearTimeout(timeoutId)
       listener?.subscription.unsubscribe()
     }
   }, [])
@@ -112,21 +113,18 @@ export function AuthProvider({ children }) {
     let finalEmail = identifier
     if (!identifier.includes('@')) {
       const { data: rpcEmail, error: rpcError } = await supabase.rpc('get_login_email', { identifier })
-      if (!rpcError && rpcEmail) {
-        finalEmail = rpcEmail
-      }
+      if (!rpcError && rpcEmail) finalEmail = rpcEmail
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email: finalEmail, password })
     if (error) throw error
     setAuthError(null)
+    setLoading(false)
     return data
   }
 
   const logout = async () => {
-    if (!useMockData) {
-      await supabase.auth.signOut()
-    }
+    if (!useMockData) await supabase.auth.signOut()
     setUser(null)
     setAuthError(null)
   }

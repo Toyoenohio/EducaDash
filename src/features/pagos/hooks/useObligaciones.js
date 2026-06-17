@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useCachedQuery } from '../../../lib/useCachedQuery'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../../lib/supabase'
 import { mockObligaciones, mockPagoObligaciones, mockInscripciones } from '../../../lib/mockData'
 
@@ -25,7 +26,7 @@ function calcularEstadoMock(obligacion) {
 export function useObligaciones(inscripcionId = null) {
   const queryClient = useQueryClient()
 
-  const { data: obligaciones = [], isLoading: loading } = useQuery({
+  const { data: obligaciones = [], isLoading: loading } = useCachedQuery({
     queryKey: ['obligaciones', inscripcionId],
     queryFn: async () => {
       if (useMockData) {
