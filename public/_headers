@@ -1,0 +1,7 @@
+# Nunca cachear HTML — referencia chunks con hash que cambian en cada deploy
+/*
+  Cache-Control: no-cache, must-revalidate
+
+# Assets con hash de contenido: caching agresivo seguro
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

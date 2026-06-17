@@ -3,7 +3,14 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,       // Guarda sesión en localStorage → sobrevive refresh
+    autoRefreshToken: true,     // Refresca JWT automáticamente antes de expirar
+    detectSessionInUrl: false,  // No buscar token en URL (usamos email/password)
+    storageKey: 'educa-auth',   // Key explícita para la sesión
+  },
+})
 
 export const getUserWithRole = async () => {
   const { data: { session } } = await supabase.auth.getSession()
