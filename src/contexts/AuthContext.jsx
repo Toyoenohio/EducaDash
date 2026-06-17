@@ -13,18 +13,35 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (useMockData) return
 
+    let timeoutId
+    let isMounted = true
+
+    // Safety timeout: force loading=false after 8s if Supabase hangs
+    timeoutId = setTimeout(() => {
+      if (isMounted) {
+        console.warn('AuthContext: getSession() timed out after 8s, forcing loading=false')
+        setLoading(false)
+      }
+    }, 8000)
+
     // Handle initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(timeoutId)
+      if (!isMounted) return
       try {
         if (session?.user) {
           const userWithRole = await getUserWithRole()
-          setUser(userWithRole)
+          if (isMounted) setUser(userWithRole)
         }
       } catch (err) {
         console.error('Error fetching initial role:', err)
       } finally {
-        setLoading(false)
+        if (isMounted) setLoading(false)
       }
+    }).catch((err) => {
+      console.error('getSession() failed:', err)
+      clearTimeout(timeoutId)
+      if (isMounted) setLoading(false)
     });
 
     // Handle subsequent events
@@ -41,7 +58,11 @@ export function AuthProvider({ children }) {
       }
     })
 
-    return () => listener?.subscription.unsubscribe()
+    return () => {
+      isMounted = false
+      clearTimeout(timeoutId)
+      listener?.subscription.unsubscribe()
+    }
   }, [])
 
   const login = async (identifier, password) => {

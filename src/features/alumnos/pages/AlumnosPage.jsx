@@ -115,7 +115,7 @@ export default function AlumnosPage() {
               <thead><tr className="bg-surface-container-low"><th className="table-header">Cédula</th><th className="table-header">Nombre</th><th className="table-header">Teléfono</th><th className="table-header">Email</th><th className="table-header text-right">Acciones</th></tr></thead>
               <tbody>
                 {alumnos.map((a, i) => (
-                  <tr key={a.id} className="table-row opacity-0 animate-fade-in" style={{ animationDelay: `${i * 0.03}s`, animationFillMode: 'forwards' }}>
+                  <tr key={a.id} className="table-row animate-fade-in" style={{ animationDelay: `${i * 0.04}s`, animationFillMode: 'forwards' }}>
                     <td className="table-cell font-mono text-sm">{a.cedula}</td>
                     <td className="table-cell"><span className="font-semibold">{a.nombre} {a.apellido}</span></td>
                     <td className="table-cell">{a.telefono}</td>
