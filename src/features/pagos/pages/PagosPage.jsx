@@ -9,7 +9,8 @@ import { CreditCard, CheckCircle, Clock, DollarSign, X, AlertTriangle, ChevronRi
 const CONCEPTO_LABELS = {
   inscripcion: 'Inscripción',
   cuota_semanal: 'Cuota Semanal',
-  certificado_carnet: 'Certificado/Carnet',
+  carnet: 'Carnet',
+  certificado: 'Certificado',
 }
 
 export default function PagosPage() {
@@ -92,11 +93,10 @@ export default function PagosPage() {
     return obligaciones
       .filter(o => o.inscripcion_id === selectedInscripcionId)
       .sort((a, b) => {
-        // inscripcion first, then by week number
         if (a.concepto === 'inscripcion') return -1
         if (b.concepto === 'inscripcion') return 1
-        if (a.concepto === 'certificado_carnet') return 1
-        if (b.concepto === 'certificado_carnet') return -1
+        if (a.concepto === 'certificado' || a.concepto === 'carnet') return 1
+        if (b.concepto === 'certificado' || b.concepto === 'carnet') return -1
         return (a.numero_semana || 0) - (b.numero_semana || 0)
       })
   }, [obligaciones, selectedInscripcionId])
@@ -121,12 +121,12 @@ export default function PagosPage() {
     }
   }
 
-  const handleAgregarCertificado = async (inscripcionId) => {
+  const handleAgregarCertificado = async (inscripcionId, concepto = 'carnet') => {
     try {
-      await agregarCertificado(inscripcionId)
-      toast.success('Certificado/Carnet agregado como obligación')
+      await agregarCertificado({ inscripcionId, concepto })
+      toast.success(`${concepto === 'carnet' ? 'Carnet' : 'Certificado'} agregado como obligación`)
     } catch (err) {
-      toast.error(err?.message || 'Error al agregar certificado')
+      toast.error(err?.message || 'Error al agregar obligación')
     }
   }
 
@@ -284,7 +284,8 @@ export default function PagosPage() {
     const firstOblig = alumnoObligaciones[0]
     const alumnoInfo = firstOblig?.inscripcion?.alumno
     const seccionInfo = firstOblig?.inscripcion?.seccion
-    const hasCertificado = alumnoObligaciones.some(o => o.concepto === 'certificado_carnet')
+    const tieneCarnet = alumnoObligaciones.some(o => o.concepto === 'carnet')
+    const tieneCertificado = alumnoObligaciones.some(o => o.concepto === 'certificado')
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -297,9 +298,14 @@ export default function PagosPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            {!hasCertificado && (
-              <button onClick={() => handleAgregarCertificado(selectedInscripcionId)} className="btn-ghost text-sm flex items-center gap-1.5">
-                <Award className="w-4 h-4" /> Agregar Certificado
+            {!tieneCarnet && (
+              <button onClick={() => handleAgregarCertificado(selectedInscripcionId, 'carnet')} className="btn-ghost text-sm flex items-center gap-1.5">
+                <Award className="w-4 h-4" /> Carnet ($15)
+              </button>
+            )}
+            {!tieneCertificado && (
+              <button onClick={() => handleAgregarCertificado(selectedInscripcionId, 'certificado')} className="btn-ghost text-sm flex items-center gap-1.5">
+                <Award className="w-4 h-4" /> Certificado ($10)
               </button>
             )}
             <button onClick={() => openRegistrarPago(selectedInscripcionId)} className="btn-primary text-sm flex items-center gap-1.5">
@@ -435,6 +441,8 @@ export default function PagosPage() {
                       .sort((a, b) => {
                         if (a.concepto === 'inscripcion') return -1
                         if (b.concepto === 'inscripcion') return 1
+                        if (a.concepto === 'certificado' || a.concepto === 'carnet') return 1
+                        if (b.concepto === 'certificado' || b.concepto === 'carnet') return -1
                         return (a.numero_semana || 99) - (b.numero_semana || 99)
                       })
                     return allForInsc.map(o => (

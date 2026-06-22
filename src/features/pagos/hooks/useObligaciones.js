@@ -133,16 +133,18 @@ export function useObligaciones(inscripcionId = null) {
     }
   })
 
-  // Agregar certificado/carnet manualmente
+  // Agregar carnet o certificado manualmente
   const { mutateAsync: agregarCertificado } = useMutation({
-    mutationFn: async (inscripcionId) => {
+    mutationFn: async ({ inscripcionId, concepto = 'carnet' }) => {
+      const montoDefault = concepto === 'carnet' ? 15.00 : 10.00
+
       if (useMockData) {
         const newOblig = {
           id: crypto.randomUUID(),
           inscripcion_id: inscripcionId,
-          concepto: 'certificado_carnet',
+          concepto: concepto,
           numero_semana: null,
-          monto: 15.00,
+          monto: montoDefault,
           fecha_vencimiento: '2026-06-30',
           created_at: new Date().toISOString(),
         }
@@ -151,7 +153,7 @@ export function useObligaciones(inscripcionId = null) {
       }
 
       const { data, error } = await supabase.functions.invoke('agregar-obligacion', {
-        body: { inscripcion_id: inscripcionId, concepto: 'certificado_carnet' }
+        body: { inscripcion_id: inscripcionId, concepto: concepto }
       })
       if (error) throw error
       return data

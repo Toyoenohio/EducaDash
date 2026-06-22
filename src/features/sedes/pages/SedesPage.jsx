@@ -7,15 +7,16 @@ export default function SedesPage() {
   const { sedes, loading, createSede, updateSede, deleteSede } = useSedes()
   const [view, setView] = useState('list')
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ nombre: '', direccion: '', inicio_cursos: '', costo_inscripcion: '', costo_semanal: '', duracion_semanas: '' })
+  const [form, setForm] = useState({ nombre: '', direccion: '', inicio_cursos: '', costo_inscripcion: '', costo_semanal: '', duracion_semanas: '', costo_carnet: '' })
 
-  const openCreate = () => { setEditing(null); setForm({ nombre: '', direccion: '', inicio_cursos: '', costo_inscripcion: '', costo_semanal: '', duracion_semanas: '' }); setView('form') }
+  const openCreate = () => { setEditing(null); setForm({ nombre: '', direccion: '', inicio_cursos: '', costo_inscripcion: '', costo_semanal: '', duracion_semanas: '', costo_carnet: '' }); setView('form') }
   
   const openEdit = (sede) => { 
     setEditing(sede); 
     const costos = sede.sede_costos || []
     const cInsc = costos.find(c => c.concepto === 'inscripcion')
     const cSem = costos.find(c => c.concepto === 'clase_semanal' || c.concepto === 'cuota_semanal')
+    const cCarnet = costos.find(c => c.concepto === 'carnet')
     
     setForm({ 
       nombre: sede.nombre, 
@@ -23,7 +24,8 @@ export default function SedesPage() {
       inicio_cursos: sede.inicio_cursos || '',
       costo_inscripcion: cInsc ? cInsc.monto : '',
       costo_semanal: cSem ? cSem.monto : '',
-      duracion_semanas: cSem ? cSem.duracion_semanas : ''
+      duracion_semanas: cSem ? cSem.duracion_semanas : '',
+      costo_carnet: cCarnet ? cCarnet.monto : '',
     }); 
     setView('form') 
   }
@@ -38,6 +40,7 @@ export default function SedesPage() {
     const costosToSave = []
     if (form.costo_inscripcion) costosToSave.push({ concepto: 'inscripcion', monto: form.costo_inscripcion })
     if (form.costo_semanal) costosToSave.push({ concepto: 'clase_semanal', monto: form.costo_semanal, duracion_semanas: form.duracion_semanas })
+    if (form.costo_carnet) costosToSave.push({ concepto: 'carnet', monto: form.costo_carnet })
 
     const updates = { nombre: form.nombre, direccion: form.direccion, inicio_cursos: form.inicio_cursos }
 
@@ -108,6 +111,13 @@ export default function SedesPage() {
                 <div>
                   <label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Duración (Semanas)</label>
                   <input type="number" className="input-field" placeholder="Ej: 15" value={form.duracion_semanas} onChange={e => setForm({...form, duracion_semanas: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                <div>
+                  <label className="block text-sm font-label font-bold text-on-surface-variant mb-1">Costo Carnet ($)</label>
+                  <input type="number" step="0.01" className="input-field" placeholder="Ej: 5.00" value={form.costo_carnet} onChange={e => setForm({...form, costo_carnet: e.target.value})} />
+                  <p className="text-[10px] text-on-surface-variant mt-1">Opcional. Si se deja vacío, no se cobra carnet.</p>
                 </div>
               </div>
             </div>
