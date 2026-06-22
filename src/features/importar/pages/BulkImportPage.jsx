@@ -152,8 +152,24 @@ export default function BulkImportPage() {
 
         const alumnoId = authResult.user.id
 
-        // Paso 2: Insertar alumno si no se insertó ya desde el Edge Function
-        // (create-student ya inserta en la tabla alumnos con el id)
+        // Paso 2: Insertar registro en tabla alumnos (el Edge solo crea auth user)
+        const { error: alumnoError } = await supabase.from('alumnos').insert([{
+          id: alumnoId,
+          nombre: alumno.nombre,
+          apellido: alumno.apellido,
+          cedula: alumno.cedula,
+          telefono: alumno.telefono || null,
+          email: email
+        }])
+
+        if (alumnoError) {
+          const msg = `Auth creado pero falló registro en alumnos: ${alumnoError.message}`
+          entries.push({ label, ok: false, msg })
+          failed++
+          setLog(prev => [...prev, { label, ok: false, msg }])
+          continue
+        }
+
         // Paso 3: Inscribir en sección
         const { error: inscError } = await supabase.from('inscripciones').insert([{
           alumno_id: alumnoId,
