@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { useAlumnos } from '../hooks/useAlumnos'
 import { Plus, Pencil, Trash2, X, Search, Users, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -8,9 +8,21 @@ export default function AlumnosPage() {
   const [editing, setEditing] = useState(null)
   const [page, setPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debounceRef = useRef(null)
   const perPage = 10
   
-  const { alumnos, total, loading, createAlumno, updateAlumno, deleteAlumno } = useAlumnos(page, perPage, searchTerm)
+  // Debounce search: solo actualiza el query 300ms después de la última tecla
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(debounceRef.current)
+  }, [searchTerm])
+  
+  const { alumnos, total, loading, createAlumno, updateAlumno, deleteAlumno } = useAlumnos(page, perPage, debouncedSearch)
   
   const [form, setForm] = useState({ cedula: '', nombre: '', apellido: '', telefono: '', email: '', direccion: '', fecha_nacimiento: '' })
 
@@ -101,7 +113,7 @@ export default function AlumnosPage() {
           className="input-field pl-10" 
           placeholder="Buscar por nombre, cédula o email..." 
           value={searchTerm}
-          onChange={e => { setSearchTerm(e.target.value); setPage(1) }} 
+          onChange={e => setSearchTerm(e.target.value)} 
         />
       </div>
 
