@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   LayoutDashboard, Building2, BookOpen, Users,
-  ClipboardList, CreditCard, CalendarCheck,
+  ClipboardList, CreditCard, CalendarCheck, Upload,
   LogOut, ChevronLeft, ChevronRight, GraduationCap, X
 } from 'lucide-react'
 
@@ -14,6 +14,7 @@ const navItems = [
   { to: '/inscripciones', label: 'Inscripciones', icon: ClipboardList },
   { to: '/pagos', label: 'Pagos', icon: CreditCard },
   { to: '/asistencia', label: 'Asistencia', icon: CalendarCheck },
+  { to: '/importar', label: 'Importar CSV', icon: Upload },
 ]
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {

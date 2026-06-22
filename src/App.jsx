@@ -13,6 +13,7 @@ const AlumnosPage = lazy(() => import('./features/alumnos/pages/AlumnosPage'))
 const InscripcionesPage = lazy(() => import('./features/inscripciones/pages/InscripcionesPage'))
 const PagosPage = lazy(() => import('./features/pagos/pages/PagosPage'))
 const AsistenciaPage = lazy(() => import('./features/cursos/pages/AsistenciaPage'))
+const BulkImportPage = lazy(() => import('./features/importar/pages/BulkImportPage'))
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
                 <Route path="inscripciones" element={<InscripcionesPage />} />
                 <Route path="pagos" element={<PagosPage />} />
                 <Route path="asistencia" element={<AsistenciaPage />} />
+                <Route path="importar" element={<BulkImportPage />} />
               </Route>
             </Routes>
           </Suspense>
